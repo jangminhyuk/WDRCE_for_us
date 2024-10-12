@@ -363,10 +363,12 @@ if __name__ == "__main__":
             drce_cost = pickle.load(drce_file)
             if drce_cost[0] < drce_optimal_cost:
                 drce_optimal_cost = drce_cost[0]
+                print("HERE", lambda_value)
                 if args.use_lambda:
                     drce_optimal_lambda = lambda_value
                 else:
                     drce_optimal_theta_w = theta_w_value
+                drce_optimal_theta_v = theta_v_value
             drce_file.close()
             drce_cost_values.append(drce_cost[0])  # Store cost value
         else:
@@ -394,7 +396,7 @@ if __name__ == "__main__":
                 match_wdrc = re.search(pattern_wdrc, filename)
                 if match_wdrc:  # wdrc
                     if args.use_lambda:
-                        lambda_value = convert_to_float(match_wdrc.group(1))  # Extract lambda and convert to float
+                        lambda_value = (match_wdrc.group(1))  # Extract lambda and convert to float
                     else:
                         theta_w_value = convert_to_float(match_wdrc.group(1))  # Extract theta_w value and convert to float
                         if match_wdrc.group(2):

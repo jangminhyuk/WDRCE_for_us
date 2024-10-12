@@ -452,12 +452,12 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             if not os.path.exists(rawpath):
                 os.makedirs(rawpath)
                 
-            save_data(rawpath + 'drce' + theta_w_ + 'and' + theta_v_+ '.pkl', output_drce_list)
+            save_data(rawpath + 'drlqc' + theta_w_ + 'and' + theta_v_+ '.pkl', output_drce_list)
             if use_lambda:
                 save_data(rawpath + 'drce_' + str(lambda_) + 'and' + theta_v_+ '.pkl', output_drce_list)
                 save_data(rawpath + 'wdrc_' + str(lambda_) + '.pkl', output_wdrc_list)
             else:
-                save_data(rawpath + 'drlqc' + theta_w_ + 'and' + theta_v_+ '.pkl', output_drlqc_list)
+                save_data(rawpath + 'drce_' + theta_w_ + 'and' + theta_v_+ '.pkl', output_drlqc_list)
                 save_data(rawpath + 'wdrc' + theta_w_ + '.pkl', output_wdrc_list)
                 
             save_data(rawpath + 'lqg.pkl', output_lqg_list)
@@ -490,11 +490,13 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         save_data(path + 'nonzero_drce_lambda.pkl',DRCE_lambda)
             
     print("Params data generation Completed !")
-    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list in plot_params4_drlqc_nonzeromean.py is as desired")
+    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list in plot file is as desired")
     if use_lambda:
-        print("Now use : python plot_params4_drlqc_nonzeromean_p.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot4_drlqc_io_pp.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
     else:
         print("Now use : python plot_params4_drlqc_nonzeromean_p.py --dist "+ dist + " --noise_dist " + noise_dist)
+        print("or")
+        print("python plot4_drlqc_io_pp.py --dist "+ dist + " --noise_dist " + noise_dist)
     
             
 
