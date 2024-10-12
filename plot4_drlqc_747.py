@@ -325,9 +325,9 @@ if __name__ == "__main__":
     
     # Regular expression pattern to extract numbers from file names
     if args.use_lambda:
-        pattern_drce = r"drce_(\d+_\d+)and_(\d+_\d+)"
-        pattern_drlqc = r"drlqc_(\d+_\d+)and_(\d+_\d+)"
-        pattern_wdrc = r"wdrc_(\d+_\d+)"
+        pattern_drce = r"drce_(\d+)and_(\d+_\d+)"
+        pattern_drlqc = r"drlqc_(\d+_\d+)_?(\d+_\d+)?and_(\d+_\d+)_?(\d+_\d+)?"
+        pattern_wdrc = r"wdrc_(\d+)"
     else:
         pattern_drlqc = r"drlqc_(\d+_\d+)_?(\d+_\d+)?and_(\d+_\d+)_?(\d+_\d+)?"
         pattern_drce = r"drce_(\d+_\d+)_?(\d+_\d+)?and_(\d+_\d+)_?(\d+_\d+)?"
@@ -339,8 +339,10 @@ if __name__ == "__main__":
         return float(underscore_value.replace('_', '.'))
 
     # Iterate over each file in the directory
+    print("HERE!!")
     for filename in os.listdir(path):
         match = re.search(pattern_drce, filename)
+        print("match!!")
         if match:
             if args.use_lambda:
                 lambda_value = convert_to_float(match.group(1))  # Extract lambda and convert to float
@@ -348,6 +350,7 @@ if __name__ == "__main__":
                 # Store lambda and theta_v values
                 drce_lambda_values.append(lambda_value)
                 drce_theta_v_values.append(theta_v_value)
+                print("DRCE HERE!!!")
             else:
                 theta_w_value = convert_to_float(match.group(1))  # Extract theta_w value and convert to float
                 if match.group(2):

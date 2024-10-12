@@ -325,9 +325,9 @@ if __name__ == "__main__":
     
     # Regular expression pattern to extract numbers from file names
     if args.use_lambda:
-        pattern_drce = r"drce_(\d+_\d+)and_(\d+_\d+)"
-        pattern_drlqc = r"drlqc_(\d+_\d+)and_(\d+_\d+)"
-        pattern_wdrc = r"wdrc_(\d+_\d+)"
+        pattern_drce = r"drce_(\d+)and_(\d+_\d+)"
+        pattern_drlqc = r"drlqc_(\d+_\d+)_?(\d+_\d+)?and_(\d+_\d+)_?(\d+_\d+)?"
+        pattern_wdrc = r"wdrc_(\d+)"
     else:
         pattern_drlqc = r"drlqc_(\d+_\d+)_?(\d+_\d+)?and_(\d+_\d+)_?(\d+_\d+)?"
         pattern_drce = r"drce_(\d+_\d+)_?(\d+_\d+)?and_(\d+_\d+)_?(\d+_\d+)?"
