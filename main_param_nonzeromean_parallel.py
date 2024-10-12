@@ -293,7 +293,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     def perform_simulation(lambda_, noise_dist, dist_parameter, theta, idx_w, idx_v):
         for num_noise in num_noise_list:
             np.random.seed(seed) # fix Random seed!
-            theta_w = 1.0 # Will not be used if use_lambda = True, placeholder
+            theta_w = 1.0 # Will be used only when if use_lambda = True, this value will be in DRLQC method. (Since WDRC and DRCE will use lambdas)
             print("--------------------------------------------")
             print("number of noise sample : ", num_noise)
             print("number of disturbance sample : ", num_samples)
@@ -430,12 +430,11 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             # Save data #
             theta_v_ = f"_{str(theta).replace('.', '_')}" # change 1.0 to 1_0 for file name
             theta_w_ = f"_{str(theta_w).replace('.', '_')}" # change 1.0 to 1_0 for file name
+            save_data(path + 'drlqc' + theta_w_ + 'and' + theta_v_+ '.pkl', J_DRLQC_mean)
             if use_lambda:
-                save_data(path + 'drce_' + str(lambda_) + 'and' + theta_v_+ '.pkl', J_DRCE_mean)
-                save_data(path + 'drlqc_' + str(lambda_) + 'and' + theta_v_+ '.pkl', J_DRLQC_mean)
+                save_data(path + 'drce_' +  str(lambda_) + 'and' + theta_v_+ '.pkl', J_DRCE_mean)
                 save_data(path + 'wdrc_' + str(lambda_) + '.pkl', J_WDRC_mean)
             else:
-                save_data(path + 'drlqc' + theta_w_ + 'and' + theta_v_+ '.pkl', J_DRLQC_mean)
                 save_data(path + 'drce' + theta_w_ + 'and' + theta_v_+ '.pkl', J_DRCE_mean)
                 save_data(path + 'wdrc' + theta_w_ + '.pkl', J_WDRC_mean)
                 
@@ -453,13 +452,12 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             if not os.path.exists(rawpath):
                 os.makedirs(rawpath)
                 
+            save_data(rawpath + 'drce' + theta_w_ + 'and' + theta_v_+ '.pkl', output_drce_list)
             if use_lambda:
                 save_data(rawpath + 'drce_' + str(lambda_) + 'and' + theta_v_+ '.pkl', output_drce_list)
-                save_data(rawpath + 'drlqc_' + str(lambda_) + 'and' + theta_v_+ '.pkl', output_drlqc_list) # lambda not used
                 save_data(rawpath + 'wdrc_' + str(lambda_) + '.pkl', output_wdrc_list)
             else:
                 save_data(rawpath + 'drlqc' + theta_w_ + 'and' + theta_v_+ '.pkl', output_drlqc_list)
-                save_data(rawpath + 'drce' + theta_w_ + 'and' + theta_v_+ '.pkl', output_drce_list)
                 save_data(rawpath + 'wdrc' + theta_w_ + '.pkl', output_wdrc_list)
                 
             save_data(rawpath + 'lqg.pkl', output_lqg_list)

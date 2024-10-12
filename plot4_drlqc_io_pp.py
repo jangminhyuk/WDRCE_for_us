@@ -325,7 +325,7 @@ if __name__ == "__main__":
     
     # Regular expression pattern to extract numbers from file names
     if args.use_lambda:
-        pattern_drce = r"drce_(\d+)and_(\d+_\d+)"
+        pattern_drce = r"drce_(\d+)and_(\d+_\d+)_?(\d+_\d+)?"
         pattern_drlqc = r"drlqc_(\d+_\d+)_?(\d+_\d+)?and_(\d+_\d+)_?(\d+_\d+)?"
         pattern_wdrc = r"wdrc_(\d+)"
     else:
@@ -343,7 +343,7 @@ if __name__ == "__main__":
         match = re.search(pattern_drce, filename)
         if match:
             if args.use_lambda:
-                lambda_value = convert_to_float(match.group(1))  # Extract lambda and convert to float
+                lambda_value = (match.group(1))  # Extract lambda and convert to float
                 theta_v_value = convert_to_float(match.group(2))  # Extract theta_v value and convert to float
                 # Store lambda and theta_v values
                 drce_lambda_values.append(lambda_value)
@@ -372,22 +372,15 @@ if __name__ == "__main__":
         else:
             match_drlqc = re.search(pattern_drlqc, filename)
             if match_drlqc:
-                if args.use_lambda:
-                    lambda_value = convert_to_float(match_drlqc.group(1))  # Extract lambda and convert to float
-                    theta_v_value = convert_to_float(match_drlqc.group(2))  # Extract theta_v value and convert to float
-                    # Store lambda and theta_v values
-                    drlqc_lambda_values.append(lambda_value)
-                    drlqc_theta_v_values.append(theta_v_value)
-                else:
-                    theta_w_value = convert_to_float(match_drlqc.group(1))  # Extract theta_w value and convert to float
-                    if match_drlqc.group(2):
-                        theta_w_value += convert_to_float(match_drlqc.group(2))
-                    theta_v_value = convert_to_float(match_drlqc.group(3))  # Extract theta_v value and convert to float
-                    if match_drlqc.group(4):
-                        theta_v_value += convert_to_float(match_drlqc.group(4))
-                    # Store theta_w and theta_v values
-                    drlqc_theta_w_values.append(theta_w_value)
-                    drlqc_theta_v_values.append(theta_v_value)
+                theta_w_value = convert_to_float(match_drlqc.group(1))  # Extract theta_w value and convert to float
+                if match_drlqc.group(2):
+                    theta_w_value += convert_to_float(match_drlqc.group(2))
+                theta_v_value = convert_to_float(match_drlqc.group(3))  # Extract theta_v value and convert to float
+                if match_drlqc.group(4):
+                    theta_v_value += convert_to_float(match_drlqc.group(4))
+                # Store theta_w and theta_v values
+                drlqc_theta_w_values.append(theta_w_value)
+                drlqc_theta_v_values.append(theta_v_value)
                 
                 drlqc_file = open(path + filename, 'rb')
                 drlqc_cost = pickle.load(drlqc_file)
@@ -409,11 +402,11 @@ if __name__ == "__main__":
                     wdrc_file = open(path + filename, 'rb')
                     wdrc_cost = pickle.load(wdrc_file)
                     if wdrc_cost[0] < wdrc_optimal_cost:
-                        drce_optimal_cost = drce_cost[0]
+                        wdrc_optimal_cost = wdrc_cost[0]
                         if args.use_lambda:
-                            drce_optimal_lambda = lambda_value
+                            wdrc_optimal_lambda = lambda_value
                         else:
-                            drce_optimal_theta_w = theta_w_value
+                            wdrc_optimal_theta_w = theta_w_value
                     wdrc_file.close()
                     for aux_theta_v in theta_v_list:
                         if args.use_lambda:
