@@ -108,6 +108,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     
     lambda_ = 10
     seed = 2024 # Random seed
+    np.random.seed(seed) # fix Random seed!
     # --- Parameter for DRLQC --- #
     tol = 1e-2
     # --- ----- --------#
@@ -117,19 +118,19 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     
     
     if dist=='normal':
-        theta_v_list = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
-        theta_w_list = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
+        theta_v_list = [0.1, 0.5, 0.1] # radius of noise ambiguity set
+        theta_w_list = [0.01, 0.05, 0.1] # radius of noise ambiguity set
     else:
-        theta_v_list = [0.1] # radius of noise ambiguity set
+        theta_v_list = [1] # radius of noise ambiguity set
         theta_w_list = [0.0001] # radius of noise ambiguity set
         #theta_w_list = [0.1]
     # WIth DRLQC implemented, this code do not support multiple lambda_list. 
-    lambda_list = [100000] # disturbance distribution penalty parameter 
+    lambda_list = [5000] # disturbance distribution penalty parameter 
     num_x0_samples = 5 #  N_x0 
-    theta_x0 = 0.1 # radius of initial state ambiguity set
+    theta_x0 = 0.01 # radius of initial state ambiguity set
     
     # If using use_lambda_option, you are not allowed to use multiple lambda_list in this code. (Because we include DRLQC, which also have \theta_w parameter.)
-    use_lambda = True # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
+    use_lambda = False # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
     use_optimal_lambda = False
     if use_lambda:
         dist_parameter_list = lambda_list
@@ -139,32 +140,53 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     output_J_LQG_mean, output_J_WDRC_mean, output_J_DRCE_mean, output_J_DRLQC_mean =[], [], [], []
     output_J_LQG_std, output_J_WDRC_std, output_J_DRCE_std, output_J_DRLQC_std=[], [], [], []
     #-------Initialization-------
-    nx = 4 #state dimension
-    nu = 2 #control input dimension
-    ny = 2 #output dimension
-    # sideslip angle
-    # roll rate
-    # yaw rate
-    # roll angle 
-    A = np.array([
-    [0.9801, 0.0003, -0.0980, 0.0038],
-    [-0.3868, 0.9071, 0.0471, -0.0008],
-    [0.1591, -0.0015, 0.9691, 0.0003],
-    [-0.0198, 0.0958, 0.0021, 1.000]
-    ])
+    nx = 5 #state dimension
+    nu = 3 #control input dimension
+    ny = 3 #output dimension
+    temp = np.ones((nx, nx))
+    A=np.array([[0,0,1.132,0,-1],
+    [0,-0.0538,-0.1712,0,0.0705],
+    [0,0,0,1,0],
+    [0,0.0485,0,-0.8556,-1.013],
+    [0,-0.2909,0,1.0532,-0.6859]])
 
-    B = np.array([
-    [-0.0001, 0.0058],
-    [0.0296, 0.0153],
-    [0.0012, -0.0908],
-    [0.0015, 0.0008]
-    ])
+    B=np.array([[0,0,0],
+    [-0.12,1,0],
+    [0,0,0],
+    [4.419,0,-1.665],
+    [1.575,0,-0.0732]])
+    C=np.array([[1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0]])
+    Q=((1/np.sqrt(2))*C[1:2,:]).T @ ((1/np.sqrt(2))*C[1:2,:])
+    R=0.5*np.eye(nu)
 
-    # C matrix 
-    C = np.array([
-    [1,0,0,0],
-    [0,0,0,1]
-    ])
+    Qf = 10*Q
+
+    # nx = 4 #state dimension
+    # nu = 2 #control input dimension
+    # ny = 2 #output dimension
+    # # sideslip angle
+    # # roll rate
+    # # yaw rate
+    # # roll angle 
+    # A = np.array([
+    # [0.9801, 0.0003, -0.0980, 0.0038],
+    # [-0.3868, 0.9071, 0.0471, -0.0008],
+    # [0.1591, -0.0015, 0.9691, 0.0003],
+    # [-0.0198, 0.0958, 0.0021, 1.000]
+    # ])
+
+    # B = np.array([
+    # [-0.0001, 0.0058],
+    # [0.0296, 0.0153],
+    # [0.0012, -0.0908],
+    # [0.0015, 0.0008]
+    # ])
+
+    # # C matrix 
+    # C = np.array([
+    # [1,0,0,0],
+    # [0,0,0,1]
+    # ])
     
     # Check Controllability Matrix
     #ctrb_matrix = control.ctrb(A, B)
@@ -175,56 +197,44 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     #print(np.linalg.matrix_rank(obsv_matrix))
     #exit()
 
-    Qf = Q = np.array([
-    [1, 0, 0, 0],
-    [0, 10, 0, 0],
-    [0, 0, 30, 0],
-    [0, 0, 0, 30]
-    ])
+    # Qf = Q = np.array([
+    # [1, 0, 0, 0],
+    # [0, 10, 0, 0],
+    # [0, 0, 30, 0],
+    # [0, 0, 0, 30]
+    # ])
 
-    #u0: aileron deflection
-    #u1: rudder deflection
-    R = np.array([
-    [0.03, 0],
-    [0, 3.16]
-    ])
-    #-------Disturbance Distribution-------
-    disturbance_scale = np.array([
-    0.01,#sideslip angle
-    0.02,#roll rate
-    0.02,#yaw rate
-    0.02 #roll angle
-    ])
-    disturbance_scale = disturbance_scale.reshape((4, 1))
-    measurement_noise_scale = np.array([
-    0.005,
-    0.01
-    ])
-    measurement_noise_scale=measurement_noise_scale.reshape((2,1))
+    # #u0: aileron deflection
+    # #u1: rudder deflection
+    # R = np.array([
+    # [0.03, 0],
+    # [0, 3.16]
+    # ])
     
     #-------Disturbance Distribution-------
     if dist == "normal":
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.3*np.ones((nx, 1))
-        Sigma_w= 0.6*np.eye(nx)
+        mu_w = 0.01*np.ones((nx, 1))
+        Sigma_w= 0.1*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
-        x0_mean = 0.5*np.ones((nx,1))
+        x0_mean = 0.0*np.ones((nx,1))
+        x0_mean[-1] = 0.2
         x0_cov = 0.001*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
-        w_max = 1*disturbance_scale
-        w_min = -0.1*disturbance_scale
+        w_max = 0.01
+        w_min = -0.01
         mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
         Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
         #initial state distribution parameters
         x_0 = np.zeros((nx,1))
         x_0[-1] = 0.1 # roll angle ~6,7 degree 
-        x0_max = x_0+0.01*disturbance_scale
-        x0_min = x_0-0.01*disturbance_scale
+        x0_max = 0.01
+        x0_min = -.01
         x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
         x0_cov = 3.0/20.0 *np.diag((x0_max - x0_min)**2)
         
@@ -232,11 +242,11 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 3.5*np.eye(ny) #observation noise covariance
+        M = 0.5*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
-        v_min = -1*measurement_noise_scale
-        v_max = 1*measurement_noise_scale
+        v_min = -0.5
+        v_max = 0.5
         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
 
@@ -279,8 +289,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         os.makedirs(temp_results_path)
     def perform_simulation(lambda_, noise_dist, dist_parameter, theta, idx_w, idx_v):
         for num_noise in num_noise_list:
-            np.random.seed(seed) # fix Random seed!
-            theta_w = 0.01 # Will be used only when if use_lambda = True, this value will be in DRLQC method. (Since WDRC and DRCE will use lambdas)
+            
+            theta_w = 0.001 # Will be used only when if use_lambda = True, this value will be in DRLQC method. (Since WDRC and DRCE will use lambdas)
             print("--------------------------------------------")
             print("number of noise sample : ", num_noise)
             print("number of disturbance sample : ", num_samples)
@@ -483,6 +493,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         print("Now use : python plot4_drlqc_747.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
     else:
         print("Now use : python plot4_drlqc_747.py --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot_params4_drlqc_nonzeromean_1.py --dist "+ dist + " --noise_dist " + noise_dist)
     
             
 
