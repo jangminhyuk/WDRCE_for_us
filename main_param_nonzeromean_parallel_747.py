@@ -121,14 +121,14 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         theta_w_list = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
     else:
         theta_v_list = [0.1] # radius of noise ambiguity set
-        theta_w_list = [0.01] # radius of noise ambiguity set
+        theta_w_list = [0.1] # radius of noise ambiguity set
         #theta_w_list = [0.1]
     # WIth DRLQC implemented, this code do not support multiple lambda_list. 
-    lambda_list = [10000] # disturbance distribution penalty parameter 
-    num_x0_samples = 10 #  N_x0 
-    theta_x0 = 1.0 # radius of initial state ambiguity set
+    lambda_list = [1000] # disturbance distribution penalty parameter 
+    num_x0_samples = 5 #  N_x0 
+    theta_x0 = 0.1 # radius of initial state ambiguity set
     
-    use_lambda = True # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
+    use_lambda = False # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
     use_optimal_lambda = False
     if use_lambda:
         dist_parameter_list = lambda_list
@@ -234,8 +234,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         M = 3.5*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
-        v_min = -0.1*measurement_noise_scale
-        v_max = 0.1*measurement_noise_scale
+        v_min = -1*measurement_noise_scale
+        v_max = 1*measurement_noise_scale
         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
 
@@ -279,7 +279,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     def perform_simulation(lambda_, noise_dist, dist_parameter, theta, idx_w, idx_v):
         for num_noise in num_noise_list:
             np.random.seed(seed) # fix Random seed!
-            theta_w = 1.0 # Will be used only when if use_lambda = True, this value will be in DRLQC method. (Since WDRC and DRCE will use lambdas)
+            theta_w = 0.01 # Will be used only when if use_lambda = True, this value will be in DRLQC method. (Since WDRC and DRCE will use lambdas)
             print("--------------------------------------------")
             print("number of noise sample : ", num_noise)
             print("number of disturbance sample : ", num_samples)
@@ -490,8 +490,8 @@ if __name__ == "__main__":
     parser.add_argument('--dist', required=False, default="quadratic", type=str) #disurbance distribution (normal or quadratic)
     parser.add_argument('--noise_dist', required=False, default="quadratic", type=str) #noise distribution (normal or quadratic)
     parser.add_argument('--num_sim', required=False, default=500, type=int) #number of simulation runs
-    parser.add_argument('--num_samples', required=False, default=10, type=int) #number of disturbance samples
-    parser.add_argument('--num_noise_samples', required=False, default=10, type=int) #number of noise samples
+    parser.add_argument('--num_samples', required=False, default=5, type=int) #number of disturbance samples
+    parser.add_argument('--num_noise_samples', required=False, default=5, type=int) #number of noise samples
     parser.add_argument('--horizon', required=False, default=20, type=int) #horizon length
     
     args = parser.parse_args()

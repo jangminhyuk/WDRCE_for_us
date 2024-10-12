@@ -318,9 +318,9 @@ if __name__ == "__main__":
     lqg_theta_v_values = []
     lqg_cost_values = []
     
-    drlqc_optimal_theta_w, drlqc_optimal_theta_v, drlqc_optimal_cost = 0, 0, 99999999
-    drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost = 0, 0, 99999999
-    wdrc_optimal_theta_w, wdrc_optimal_cost = 0, 99999999
+    drlqc_optimal_theta_w, drlqc_optimal_theta_v, drlqc_optimal_cost = 0, 0, np.inf
+    drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost = 0, 0, np.inf
+    wdrc_optimal_theta_w, wdrc_optimal_cost = 0, np.inf
     
     
     # TODO : Modify the theta_v_list and lambda_list below to match your experiments!!! 

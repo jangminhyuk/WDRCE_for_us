@@ -306,9 +306,9 @@ if __name__ == "__main__":
     lqg_theta_v_values = []
     lqg_cost_values = []
     
-    drlqc_optimal_theta_w, drlqc_optimal_theta_v, drlqc_optimal_cost = 0, 0, 999999999999
-    drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost = 0, 0, 999999999999
-    wdrc_optimal_theta_w, wdrc_optimal_cost = 0, 999999999999
+    drlqc_optimal_theta_w, drlqc_optimal_theta_v, drlqc_optimal_cost = 0, 0, np.inf
+    drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost = 0, 0, np.inf
+    wdrc_optimal_theta_w, wdrc_optimal_cost = 0, np.inf
     drce_optimal_lambda, wdrc_optimal_lambda = 0, 0
     
     # TODO : Modify the theta_v_list and lambda_list below to match your experiments!!! 
@@ -341,7 +341,6 @@ if __name__ == "__main__":
     # Iterate over each file in the directory
     for filename in os.listdir(path):
         match = re.search(pattern_drce, filename)
-        print("match!!")
         if match:
             if args.use_lambda:
                 lambda_value = (match.group(1))  # Extract lambda and convert to float
@@ -349,7 +348,6 @@ if __name__ == "__main__":
                 # Store lambda and theta_v values
                 drce_lambda_values.append(lambda_value)
                 drce_theta_v_values.append(theta_v_value)
-                print("DRCE HERE!!!")
             else:
                 theta_w_value = convert_to_float(match.group(1))  # Extract theta_w value and convert to float
                 if match.group(2):
@@ -363,8 +361,10 @@ if __name__ == "__main__":
             
             drce_file = open(path + filename, 'rb')
             drce_cost = pickle.load(drce_file)
+            print("drce cost", drce_cost[0])
             if drce_cost[0] < drce_optimal_cost:
                 drce_optimal_cost = drce_cost[0]
+                print("HERE drce ")
                 if args.use_lambda:
                     drce_optimal_lambda = lambda_value
                 else:
