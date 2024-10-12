@@ -478,10 +478,11 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             
     print("Params data generation Completed !")
     print("Please make sure your lambda_list(or theta_w_list) and theta_v_list in plot file is as desired")
-    # if use_lambda:
-    #     print("Now use : python plot_params4_drlqc_nonzeromean_p.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
-    # else:
-    #     print("Now use : python plot_params4_drlqc_nonzeromean_p.py --dist "+ dist + " --noise_dist " + noise_dist)
+    print("To draw, trajectory plot,")
+    if use_lambda:
+        print("Now use : python plot4_drlqc_747.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
+    else:
+        print("Now use : python plot4_drlqc_747.py --dist "+ dist + " --noise_dist " + noise_dist)
     
             
 
