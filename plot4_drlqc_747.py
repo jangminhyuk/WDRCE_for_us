@@ -342,6 +342,7 @@ if __name__ == "__main__":
     for filename in os.listdir(path):
         match = re.search(pattern_drce, filename)
         if match:
+            print("check")
             if args.use_lambda:
                 lambda_value = (match.group(1))  # Extract lambda and convert to float
                 theta_v_value = convert_to_float(match.group(2))  # Extract theta_v value and convert to float
@@ -361,10 +362,8 @@ if __name__ == "__main__":
             
             drce_file = open(path + filename, 'rb')
             drce_cost = pickle.load(drce_file)
-            print("drce cost", drce_cost[0])
             if drce_cost[0] < drce_optimal_cost:
                 drce_optimal_cost = drce_cost[0]
-                print("HERE drce ")
                 if args.use_lambda:
                     drce_optimal_lambda = lambda_value
                 else:

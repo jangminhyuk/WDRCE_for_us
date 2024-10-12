@@ -294,6 +294,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         os.makedirs(temp_results_path)
     def perform_simulation(lambda_, noise_dist, dist_parameter, theta, idx_w, idx_v):
         for num_noise in num_noise_list:
+            np.random.seed(seed) # fix Random seed!
             theta_w = 1.0 # Will be used only when if use_lambda = True, this value will be in DRLQC method. (Since WDRC and DRCE will use lambdas)
             print("--------------------------------------------")
             print("number of noise sample : ", num_noise)
