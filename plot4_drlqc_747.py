@@ -284,7 +284,7 @@ if __name__ == "__main__":
     else:
         path = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/747/".format(args.dist, args.noise_dist)
         rawpath = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/747/raw/".format(args.dist, args.noise_dist)
-
+    
     #Load data
     drlqc_theta_w_values =[]
     drlqc_lambda_values = []
@@ -309,7 +309,7 @@ if __name__ == "__main__":
     drlqc_optimal_theta_w, drlqc_optimal_theta_v, drlqc_optimal_cost = 0, 0, 999999999999
     drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost = 0, 0, 999999999999
     wdrc_optimal_theta_w, wdrc_optimal_cost = 0, 999999999999
-    
+    drce_optimal_lambda, wdrc_optimal_lambda = 0, 0
     
     # TODO : Modify the theta_v_list and lambda_list below to match your experiments!!! 
     
@@ -363,7 +363,10 @@ if __name__ == "__main__":
             drce_cost = pickle.load(drce_file)
             if drce_cost[0] < drce_optimal_cost:
                 drce_optimal_cost = drce_cost[0]
-                drce_optimal_theta_w = theta_w_value
+                if args.use_lambda:
+                    drce_optimal_lambda = lambda_value
+                else:
+                    drce_optimal_theta_w = theta_w_value
                 drce_optimal_theta_v = theta_v_value
             drce_file.close()
             drce_cost_values.append(drce_cost[0])  # Store cost value
@@ -407,8 +410,10 @@ if __name__ == "__main__":
                     wdrc_file = open(path + filename, 'rb')
                     wdrc_cost = pickle.load(wdrc_file)
                     if wdrc_cost[0] < wdrc_optimal_cost:
-                        wdrc_optimal_cost = wdrc_cost[0]
-                        wdrc_optimal_theta_w = theta_w_value
+                        if args.use_lambda:
+                            wdrc_optimal_lambda = lambda_value
+                        else:
+                            wdrc_optimal_theta_w = theta_w_value
                     wdrc_file.close()
                     for aux_theta_v in theta_v_list:
                         if args.use_lambda:
@@ -445,11 +450,19 @@ if __name__ == "__main__":
     print("DRLQC")
     print("Best theta_w: {}, Best theta_v: {}, Best cost: {}".format(drlqc_optimal_theta_w, drlqc_optimal_theta_v, drlqc_optimal_cost))
     print("-------------------------")
-    print("DRCE")
-    print("Best theta_w: {}, Best theta_v: {}, Best cost: {}".format(drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost))
+    if args.use_lambda:
+        print("DRCE")
+        print("Best lambda: {}, Best theta_v: {}, Best cost: {}".format(drce_optimal_lambda, drce_optimal_theta_v, drce_optimal_cost))
+    else:
+        print("DRCE")
+        print("Best theta_w: {}, Best theta_v: {}, Best cost: {}".format(drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost))
     print("-------------------------")
-    print("WDRC")
-    print("Best theta_w: {},  Best cost: {}".format(wdrc_optimal_theta_w, wdrc_optimal_cost))
+    if args.use_lambda:
+        print("WDRC")
+        print("Best lambda: {},  Best cost: {}".format(wdrc_optimal_lambda, wdrc_optimal_cost))
+    else:
+        print("WDRC")
+        print("Best theta_w: {},  Best cost: {}".format(wdrc_optimal_theta_w, wdrc_optimal_cost))
     print("-------------------------")
     print("LQG")
     print("Cost: {}".format(lqg_cost[0]))
@@ -475,10 +488,17 @@ if __name__ == "__main__":
     drlqc_filename = f"drlqc_{drlqc_theta_w_str}and_{drlqc_theta_v_str}.pkl"
     drlqc_filepath = rawpath + drlqc_filename
     
-    drce_filename = f"drce_{drce_theta_w_str}and_{drce_theta_v_str}.pkl"
+    if args.use_lambda:
+        drce_filename = f"drce_{str(drce_optimal_lambda)}and_{drce_theta_v_str}.pkl"
+        drce_filepath = rawpath + drce_filename
+    else:
+        drce_filename = f"drce_{drce_theta_w_str}and_{drce_theta_v_str}.pkl"
     drce_filepath = rawpath + drce_filename
     
-    wdrc_filename = f"wdrc_{wdrc_theta_w_str}.pkl"
+    if args.use_lambda:
+        wdrc_filename = f"wdrc_{str(wdrc_optimal_lambda)}.pkl"
+    else:
+        wdrc_filename = f"wdrc_{wdrc_theta_w_str}.pkl"
     wdrc_filepath = rawpath + wdrc_filename
     
     lqg_filename = f"lqg.pkl"

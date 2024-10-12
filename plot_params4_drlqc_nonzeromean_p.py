@@ -167,6 +167,7 @@ if __name__ == "__main__":
     drlqc_optimal_theta_w, drlqc_optimal_theta_v, drlqc_optimal_cost = 0, 0, 999999999999
     drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost = 0, 0, 999999999999
     wdrc_optimal_theta_w, wdrc_optimal_cost = 0, 999999999999
+    drce_optimal_lambda, wdrc_optimal_lambda = 0, 0
     # TODO : Modify the theta_v_list and lambda_list below to match your experiments!!! 
     
     if args.dist=='normal':
@@ -218,7 +219,10 @@ if __name__ == "__main__":
             drce_cost = pickle.load(drce_file)
             if drce_cost[0] < drce_optimal_cost:
                 drce_optimal_cost = drce_cost[0]
-                drce_optimal_theta_w = theta_w_value
+                if args.use_lambda:
+                    drce_optimal_lambda = lambda_value
+                else:
+                    drce_optimal_theta_w = theta_w_value
                 drce_optimal_theta_v = theta_v_value
             drce_file.close()
             drce_cost_values.append(drce_cost[0])  # Store cost value
@@ -262,8 +266,11 @@ if __name__ == "__main__":
                     wdrc_file = open(path + filename, 'rb')
                     wdrc_cost = pickle.load(wdrc_file)
                     if wdrc_cost[0] < wdrc_optimal_cost:
-                        wdrc_optimal_cost = wdrc_cost[0]
-                        wdrc_optimal_theta_w = theta_w_value
+                        wdrc_optimal_cost = drce_cost[0]
+                        if args.use_lambda:
+                            wdrc_optimal_lambda = lambda_value
+                        else:
+                            wdrc_optimal_theta_w = theta_w_value
                     wdrc_file.close()
                     for aux_theta_v in theta_v_list:
                         if args.use_lambda:
