@@ -130,7 +130,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         theta_w_list = [0.001, 0.01] # radius of noise ambiguity set
     else:
         theta_v_list = [0.05, 0.1] # radius of noise ambiguity set
-        theta_w_list = [0.001] # radius of noise ambiguity set
+        theta_w_list = [0.0001] # radius of noise ambiguity set
         #theta_w_list = [0.1, 0.2, 0.5]
         #theta_v_list=[3.0]
     lambda_list = [1000] # disturbance distribution penalty parameter # will not be used if use_lambda = False
