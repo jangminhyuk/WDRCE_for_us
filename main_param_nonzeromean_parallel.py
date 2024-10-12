@@ -260,8 +260,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     x0_cov_hat = x0_cov_hat + 1e-4*np.eye(nx) 
     
     #REMOVE BELOW
-    for i in range(T):
-        mu_hat[i] = np.zeros((nx,1))
+    # for i in range(T):
+    #     mu_hat[i] = np.zeros((nx,1))
     
     
     

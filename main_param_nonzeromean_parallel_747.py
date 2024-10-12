@@ -124,7 +124,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         theta_w_list = [0.01, 0.02] # radius of noise ambiguity set
         #theta_w_list = [0.1]
     lambda_list = [100000] # disturbance distribution penalty parameter
-    num_x0_samples = 5 #  N_x0 
+    num_x0_samples = 10 #  N_x0 
     theta_x0 = 1.0 # radius of initial state ambiguity set
     
     use_lambda = False # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
@@ -214,15 +214,15 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         x0_cov = 0.001*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
-        w_max = 1*disturbance_scale
-        w_min = -1*disturbance_scale
+        w_max = 0.1*disturbance_scale
+        w_min = -0.1*disturbance_scale
         mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
         Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
         #initial state distribution parameters
         x_0 = np.zeros((nx,1))
         x_0[3] = 0.1 # roll angle ~6,7 degree 
-        x0_max = x_0+0.1*disturbance_scale
-        x0_min = x_0-0.1*disturbance_scale
+        x0_max = x_0+0.01*disturbance_scale
+        x0_min = x_0-0.01*disturbance_scale
         x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
         x0_cov = 3.0/20.0 *np.diag((x0_max - x0_min)**2)
         
@@ -431,9 +431,9 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             #Summarize and plot the results
             #Save all raw data
             if use_lambda:
-                rawpath = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/nonzeropp/raw/".format(dist, noise_dist)
+                rawpath = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/747/raw/".format(dist, noise_dist)
             else:
-                rawpath = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/nonzeropp/raw/".format(dist, noise_dist)
+                rawpath = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/747/raw/".format(dist, noise_dist)
                 
             if not os.path.exists(rawpath):
                 os.makedirs(rawpath)
@@ -477,7 +477,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         save_data(path + 'nonzero_drce_lambda.pkl',DRCE_lambda)
             
     print("Params data generation Completed !")
-    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list in plot_params4_drlqc_nonzeromean.py is as desired")
+    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list in plot file is as desired")
     if use_lambda:
         print("Now use : python plot_params4_drlqc_nonzeromean_p.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
     else:
@@ -490,8 +490,8 @@ if __name__ == "__main__":
     parser.add_argument('--dist', required=False, default="quadratic", type=str) #disurbance distribution (normal or quadratic)
     parser.add_argument('--noise_dist', required=False, default="quadratic", type=str) #noise distribution (normal or quadratic)
     parser.add_argument('--num_sim', required=False, default=500, type=int) #number of simulation runs
-    parser.add_argument('--num_samples', required=False, default=5, type=int) #number of disturbance samples
-    parser.add_argument('--num_noise_samples', required=False, default=5, type=int) #number of noise samples
+    parser.add_argument('--num_samples', required=False, default=10, type=int) #number of disturbance samples
+    parser.add_argument('--num_noise_samples', required=False, default=10, type=int) #number of noise samples
     parser.add_argument('--horizon', required=False, default=20, type=int) #horizon length
     
     args = parser.parse_args()
