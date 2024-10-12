@@ -133,11 +133,13 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         theta_w_list = [0.0001] # radius of noise ambiguity set
         #theta_w_list = [0.1, 0.2, 0.5]
         #theta_v_list=[3.0]
+    
     lambda_list = [1000] # disturbance distribution penalty parameter # will not be used if use_lambda = False
     num_x0_samples = 10 #  N_x0 
     theta_x0 = 0.05 # radius of initial state ambiguity set
     
-    use_lambda = True # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
+    # If using use_lambda_option, you are not allowed to use multiple lambda_list in this code. (Because we include DRLQC, which also have \theta_w parameter.)
+    use_lambda = True # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list.
     use_optimal_lambda = False
     if use_lambda:
         dist_parameter_list = lambda_list

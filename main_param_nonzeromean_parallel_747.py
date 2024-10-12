@@ -121,14 +121,15 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         theta_w_list = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
     else:
         theta_v_list = [0.1] # radius of noise ambiguity set
-        theta_w_list = [0.1] # radius of noise ambiguity set
+        theta_w_list = [0.0001] # radius of noise ambiguity set
         #theta_w_list = [0.1]
     # WIth DRLQC implemented, this code do not support multiple lambda_list. 
-    lambda_list = [1000] # disturbance distribution penalty parameter 
+    lambda_list = [100000] # disturbance distribution penalty parameter 
     num_x0_samples = 5 #  N_x0 
     theta_x0 = 0.1 # radius of initial state ambiguity set
     
-    use_lambda = False # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
+    # If using use_lambda_option, you are not allowed to use multiple lambda_list in this code. (Because we include DRLQC, which also have \theta_w parameter.)
+    use_lambda = True # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
     use_optimal_lambda = False
     if use_lambda:
         dist_parameter_list = lambda_list
@@ -215,13 +216,13 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         x0_cov = 0.001*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
-        w_max = 0.1*disturbance_scale
+        w_max = 1*disturbance_scale
         w_min = -0.1*disturbance_scale
         mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
         Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
         #initial state distribution parameters
         x_0 = np.zeros((nx,1))
-        x_0[3] = 0.1 # roll angle ~6,7 degree 
+        x_0[-1] = 0.1 # roll angle ~6,7 degree 
         x0_max = x_0+0.01*disturbance_scale
         x0_min = x_0-0.01*disturbance_scale
         x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
