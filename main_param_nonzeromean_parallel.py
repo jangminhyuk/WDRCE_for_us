@@ -137,7 +137,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     num_x0_samples = 10 #  N_x0 
     theta_x0 = 0.05 # radius of initial state ambiguity set
     
-    use_lambda = False # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
+    use_lambda = True # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
     use_optimal_lambda = False
     if use_lambda:
         dist_parameter_list = lambda_list
@@ -293,7 +293,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     def perform_simulation(lambda_, noise_dist, dist_parameter, theta, idx_w, idx_v):
         for num_noise in num_noise_list:
             np.random.seed(seed) # fix Random seed!
-            #theta_w = 1.0 # Will not be used if use_lambda = True, placeholder
+            theta_w = 1.0 # Will not be used if use_lambda = True, placeholder
             print("--------------------------------------------")
             print("number of noise sample : ", num_noise)
             print("number of disturbance sample : ", num_samples)
