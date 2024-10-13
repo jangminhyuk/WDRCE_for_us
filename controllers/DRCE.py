@@ -90,10 +90,10 @@ class DRCE:
         
         print("Optimizing lambda . . . Please wait")
         #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxiter': 100,'ftol': 1e-3,'gtol': 1e-3, 'maxfun':100})
-        #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxiter': 100,'ftol': 1e-6,'gtol': 1e-6, 'maxfun':100})
-        #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxfun': 500})
-        #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': True, 'maxiter': 15, 'fatol': 1e-3})
-        # output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': True})
+        # output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxiter': 100,'ftol': 1e-6,'gtol': 1e-6, 'maxfun':100})
+        # #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxfun': 500})
+        # #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': True, 'maxiter': 15, 'fatol': 1e-3})
+        # #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': True})
         # optimal_penalty = output.x
         # print("DRCE Optimal penalty (lambda_star):", optimal_penalty[0], "theta_w : ", self.theta_w, " theta_v : ", self.theta_v)
         # return optimal_penalty
@@ -103,7 +103,7 @@ class DRCE:
         # # penalty_values = np.linspace(120* self.infimum_penalty, 200 * self.infimum_penalty, num=5)
         
         
-        penalty_values = np.linspace(2* self.infimum_penalty, 10 * self.infimum_penalty, num=5)
+        penalty_values = np.linspace(2* self.infimum_penalty, 15 * self.infimum_penalty, num=5)
         objectives = Parallel(n_jobs=-1)(delayed(self.objective)(np.array([p])) for p in penalty_values)
         objectives = np.array(objectives)
         optimal_penalty = penalty_values[np.argmin(objectives)]

@@ -92,18 +92,18 @@ class WDRC:
         #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': True, 'maxiter': 10, 'fatol': 1e-3})
         # #output = minimize(self.objective,x0=np.array([10 * self.infimum_penalty]),method='Powell',options={'disp': False, 'maxiter': 100})
         #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': False, 'maxfun':50})
-        # output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': True})
+        #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': True})
         # # #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxfun': 500})
-        # optimal_penalty = output.x
-        # print("WDRC Optimal penalty (lambda_star) :", optimal_penalty[0], " when theta_w : ", self.theta_w, "\n\n")
-        # return optimal_penalty
+        #optimal_penalty = output.x
+        #print("WDRC Optimal penalty (lambda_star) :", optimal_penalty[0], " when theta_w : ", self.theta_w, "\n\n")
+        #return optimal_penalty
     
     
-        penalty_values = np.linspace(2* self.infimum_penalty, 10 * self.infimum_penalty, num=5)
+        penalty_values = np.linspace(2* self.infimum_penalty, 15 * self.infimum_penalty, num=5)
         objectives = Parallel(n_jobs=-1)(delayed(self.objective)(np.array([p])) for p in penalty_values)
         objectives = np.array(objectives)
         optimal_penalty = penalty_values[np.argmin(objectives)]
-        #optimal_penalty = output.x
+        ##optimal_penalty = output.x
         print("WDRC Optimal penalty (lambda_star) :", optimal_penalty, " when theta_w : ", self.theta_w, "\n\n")
         return np.array([optimal_penalty])
         # print("WDRC Optimal penalty (lambda_star) :", optimal_penalty[0], " when theta_w : ", self.theta_w, "\n\n")
@@ -155,7 +155,7 @@ class WDRC:
         # print("penalty*self.T*self.theta_w**2 : ", penalty*self.T*self.theta_w**2 )
         obj_val = penalty*self.T*self.theta_w**2 + (self.x0_mean_hat.T @ P[0] @ self.x0_mean_hat)[0][0] + 2*(r[0].T @ self.x0_mean_hat)[0][0] + z[0][0] + np.trace(P[0] @ self.x0_cov_hat)  + np.trace(S[0] @ x_cov[0]) + z_tilde.sum()
         #obj_val = penalty*self.T*self.theta_w**2 + (self.x0_mean_hat.T @ P[0] @ self.x0_mean_hat)[0][0] + 2*(r[0].T @ self.x0_mean_hat)[0][0] + z[0][0] + np.trace(P[0] @ self.x0_cov_hat)  + np.trace(S[0] @ x_cov[0]) + z_tilde.sum()
-        #print(f'obj for {penalty}: {obj_val}')
+        print(f'obj for {penalty}: {obj_val}')
         return obj_val/self.T
     
     def binarysearch_infimum_penalty_finite(self):

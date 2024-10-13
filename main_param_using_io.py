@@ -108,6 +108,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     
     lambda_ = 10
     seed = 2024 # Random seed
+    np.random.seed(seed) # fix Random seed!
     # --- Parameter for DRLQC --- #
     tol = 1e-2
     # --- ----- --------#
@@ -130,8 +131,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if dist=='normal':
         theta_v_list = [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
         theta_w_list = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
-        #theta_v_list = [1.0, 2.0] # radius of noise ambiguity set
-        #theta_w_list = [1.0, 2.0] # radius of noise ambiguity set
+        theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
+        theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0] # radius of noise ambiguity set
     else:
         theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
         theta_w_list = [0.2, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
@@ -140,7 +141,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     lambda_list = [3] # disturbance distribution penalty parameter # not used if use_lambda = False
     theta_w = 1.0 # will not be used if use_lambda = True
     #num_x0_samples = 15 #  N_x0 
-    theta_x0 = 0.5 # radius of initial state ambiguity set
+    theta_x0 = 1.0 # radius of initial state ambiguity set
     use_lambda = False # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
     use_optimal_lambda = False
     if use_lambda:
@@ -173,7 +174,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         w_max = None
         w_min = None
         mu_w = 0.3*np.ones((nx, 1))
-        Sigma_w= 0.6*np.eye(nx)
+        Sigma_w= 1.0*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
@@ -197,7 +198,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 3.5*np.eye(ny) #observation noise covariance
+        M = 1.5*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -0.2*np.ones(ny)
