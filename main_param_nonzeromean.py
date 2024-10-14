@@ -97,6 +97,7 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
     
     lambda_ = 10
     seed = 2024 # Random seed
+    np.random.seed(seed) # fix Random seed!
     # --- Parameter for DRLQC --- #
     tol = 1e-3
     # --- ----- --------#
@@ -253,7 +254,7 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
                     WDRC_lambda[idx_w][idx_v] = wdrc.lambda_
                     DRCE_lambda[idx_w][idx_v] = drce.lambda_
                     print('---------------------')
-                    
+                    np.random.seed(seed) # fix Random seed!
                     #----------------------------
                     print("Running DRCE Forward step ...")
                     for i in range(num_sim):
@@ -273,7 +274,7 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
                     output_J_DRCE_std.append(J_DRCE_std[0])
                     print(" Average cost (DRCE) : ", J_DRCE_mean[0])
                     print(" std (DRCE) : ", J_DRCE_std[0])
-                    
+                    np.random.seed(seed) # fix Random seed!
                     #----------------------------
                     print("Running DRLQC Forward step ...")
                     for i in range(num_sim):
