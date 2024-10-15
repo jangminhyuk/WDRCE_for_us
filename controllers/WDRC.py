@@ -99,7 +99,7 @@ class WDRC:
         return optimal_penalty
     
     
-        penalty_values = np.linspace(2* self.infimum_penalty, 15 * self.infimum_penalty, num=5)
+        penalty_values = np.linspace(2* self.infimum_penalty, 12 * self.infimum_penalty, num=5)
         objectives = Parallel(n_jobs=-1)(delayed(self.objective)(np.array([p])) for p in penalty_values)
         objectives = np.array(objectives)
         optimal_penalty = penalty_values[np.argmin(objectives)]
