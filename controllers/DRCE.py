@@ -90,13 +90,13 @@ class DRCE:
         
         print("Optimizing lambda . . . Please wait")
         #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxiter': 100,'ftol': 1e-3,'gtol': 1e-3, 'maxfun':100})
-        # output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxiter': 100,'ftol': 1e-6,'gtol': 1e-6, 'maxfun':100})
+        output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxiter': 100,'ftol': 1e-6,'gtol': 1e-6, 'maxfun':100})
         # #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='L-BFGS-B', options={'disp': True, 'maxfun': 500})
         # #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': True, 'maxiter': 15, 'fatol': 1e-3})
         # #output = minimize(self.objective, x0=np.array([2*self.infimum_penalty]), method='Nelder-Mead', options={'disp': True})
-        # optimal_penalty = output.x
-        # print("DRCE Optimal penalty (lambda_star):", optimal_penalty[0], "theta_w : ", self.theta_w, " theta_v : ", self.theta_v)
-        # return optimal_penalty
+        optimal_penalty = output.x
+        print("DRCE Optimal penalty (lambda_star):", optimal_penalty[0], "theta_w : ", self.theta_w, " theta_v : ", self.theta_v)
+        return optimal_penalty
     
     
         # #output = minimize(self.objective, x0=np.array([10*self.infimum_penalty]), method='Nelder-Mead', options={'disp': False, 'maxiter': 200})

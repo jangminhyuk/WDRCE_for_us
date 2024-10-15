@@ -174,16 +174,16 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         w_max = None
         w_min = None
         mu_w = 0.3*np.ones((nx, 1))
-        Sigma_w= 0.5*np.eye(nx)
+        Sigma_w= 0.8*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
-        x0_mean = 0.1*np.ones((nx,1))
-        x0_cov = 0.1*np.eye(nx)
+        x0_mean = 0.2*np.ones((nx,1))
+        x0_cov = 0.001*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
-        w_max = 1.2*np.ones(nx)
-        w_min = -1.5*np.ones(nx)
+        w_max = 0.5*np.ones(nx)
+        w_min = -1.0*np.ones(nx)
         mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
         Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
         #initial state distribution parameters
@@ -196,55 +196,55 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 1.5*np.eye(ny) #observation noise covariance
+        M = 3.0*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -1.5*np.ones(ny)
-        v_max = 2.5*np.ones(ny)
+        v_max = 2.0*np.ones(ny)
         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
     
     x0 = x0_mean    
     N=10
     # -------Estimate the nominal distribution-------
+    # --- Data Generation ---
     # Initialize lists to store data for all sequences
     x_list = []
     y_list = []
     u_list = []
+    x0_list = []
 
-    # Generate N sequences of data with known initial state x[0]
+    # Generate N sequences of data with unknown initial state x[0]
     for i in range(N):
         # Initialize state, input, and output arrays for sequence i
         x = np.zeros((T + 1, nx, 1))
         y = np.zeros((T + 1, ny, 1))
         u = np.zeros((T, nu, 1))
 
-        # Set initial state x[0] (known)
-        x[0] = x0
+        # Sample initial state x[0] from a normal distribution
+        x0_i = normal(x0_mean, x0_cov)
+        x[0] = x0_i
+        x0_list.append(x0_i)
 
         # Generate input-output data over time horizon T
         for t in range(T):
-            # Sample  w_t
-            if dist=="normal":
-                true_w = normal(mu_w, Sigma_w)
-            elif dist=="quadratic":
-                true_w = quadratic(w_max, w_min)
-                
+            # Sample w_t
+            true_w = normal(mu_w, Sigma_w)
+
             # Sample v_t
-            if noise_dist=="normal":
-                true_v = normal(mu_v, M)
-            elif noise_dist=="quadratic":
-                true_v = quadratic(v_max, v_min)
-                
+            true_v = normal(mu_v, M)
+
             # Sample control input u_t from zero-mean Gaussian distribution
             u[t] = np.random.multivariate_normal(np.zeros(nu), np.eye(nu)).reshape(nu, 1)
+
             # Update state x_{t+1}
             x[t + 1] = A @ x[t] + B @ u[t] + true_w
+
             # Generate measurement y_{t}
-            y[t] = C @ x[t] + true_v 
+            y[t] = C @ x[t] + true_v
 
         # Generate measurement y[T] at final state x[T]
-        true_v_T = np.random.multivariate_normal(mu_v.flatten(), M).reshape(ny, 1)
+        true_v_T = normal(mu_v, M)
         y[T] = C @ x[T] + true_v_T
 
         # Append sequence data to lists
@@ -255,12 +255,10 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     # --- Estimation Procedure ---
 
     # Total number of unknowns
-    # Each sequence contributes T*nx states (excluding x[0])
-    # We have mu_w and mu_v to estimate (common across sequences)
-    D = N * nx * T + nx + ny  # x[1:T] for all sequences, mu_w, mu_v
+    D = N * (T + 1) * nx + nx + nx + ny  # x[0:T] for all sequences, mu_x0, mu_w, mu_v
 
     # Total number of residuals
-    N_residuals = N * (nx * T + ny * (T + 1))
+    N_residuals = N * (T * nx + (T + 1) * ny + nx)
 
     # Initialize matrices for least squares
     M_ls = np.zeros((N_residuals, D))
@@ -268,21 +266,26 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
 
     # Helper functions to index variables in theta
     def idx_x(i, t):
-        # Index for state x_t in sequence i (excluding x[0])
-        # t ranges from 1 to T
-        start = i * nx * T + (t - 1) * nx
+        # Index for state x_t in sequence i (t from 0 to T)
+        start = i * (T + 1) * nx + t * nx
+        end = start + nx
+        return slice(start, end)
+
+    def idx_mu_x0():
+        # Indices for mu_x0
+        start = N * (T + 1) * nx
         end = start + nx
         return slice(start, end)
 
     def idx_mu_w():
         # Indices for mu_w
-        start = N * nx * T
+        start = N * (T + 1) * nx + nx
         end = start + nx
         return slice(start, end)
 
     def idx_mu_v():
         # Indices for mu_v
-        start = N * nx * T + nx
+        start = N * (T + 1) * nx + 2 * nx
         end = start + ny
         return slice(start, end)
 
@@ -290,123 +293,140 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     row = 0  # Row counter
 
     for i in range(N):
-        x = x_list[i]
-        y = y_list[i]
-        u = u_list[i]
+        y_seq = y_list[i]
+        u_seq = u_list[i]
 
-        # Process equations: x_{t+1} - A x_t - B u_t - mu_w = 0
+        # Initial state equation: x_0^{(i)} - mu_{x0} = s_0^{(i)}
+        idx_x0 = idx_x(i, 0)
+        idx_mux0 = idx_mu_x0()
+        M_ls[row:row + nx, idx_x0] = np.eye(nx)
+        M_ls[row:row + nx, idx_mux0] = -np.eye(nx)
+        b_ls[row:row + nx, 0] = np.zeros((nx,))
+        row += nx
+
+        # State equations: x_{t+1} - A x_t - B u_t - mu_w = w_t
         for t in range(T):
-            # Indices in theta
-            if t == 0:
-                # x[0] is known
-                x_t = x[0]
-            else:
-                idx_xt = idx_x(i, t)
-
+            idx_xt = idx_x(i, t)
             idx_xt1 = idx_x(i, t + 1)
             idx_muw = idx_mu_w()
+
             # Fill M_ls matrix
             M_ls[row:row + nx, idx_xt1] = np.eye(nx)
-            if t == 0:
-                # Subtract A x[0] and include it in b_ls
-                b_ls[row:row + nx, 0] = (B @ u[t] + A @ x[0]).flatten()
-            else:
-                M_ls[row:row + nx, idx_xt] = -A
-                b_ls[row:row + nx, 0] = (B @ u[t]).flatten()
+            M_ls[row:row + nx, idx_xt] = -A
             M_ls[row:row + nx, idx_muw] = -np.eye(nx)
+            b_ls[row:row + nx, 0] = (B @ u_seq[t]).flatten()
             row += nx
 
-        # Measurement equations: y_t - C x_t - mu_v = 0
+        # Measurement equations: y_t - C x_t - mu_v = v_t
         for t in range(T + 1):
-            # Indices in theta
-            if t == 0:
-                # x[0] is known
-                x_t = x[0]
-                b_ls[row:row + ny, 0] = (-y[t] + C @ x[0]).flatten()
-
-            else:
-                idx_xt = idx_x(i, t)
-                M_ls[row:row + ny, idx_xt] = -C
-                b_ls[row:row + ny, 0] = -y[t].flatten()
+            idx_xt = idx_x(i, t)
             idx_muv = idx_mu_v()
+
+            # Fill M_ls matrix
+            M_ls[row:row + ny, idx_xt] = -C
             M_ls[row:row + ny, idx_muv] = -np.eye(ny)
+            b_ls[row:row + ny, 0] = -y_seq[t].flatten()
             row += ny
 
     # Solve the least squares problem
     theta_hat, residuals, rank, s = lstsq(M_ls, b_ls, rcond=None)
 
-    # Extract estimated mu_w and mu_v
+    # Extract estimated mu_x0, mu_w, and mu_v
+    mu_x0_hat = theta_hat[idx_mu_x0()].reshape(nx, 1)
     mu_w_hat = theta_hat[idx_mu_w()].reshape(nx, 1)
     mu_v_hat = theta_hat[idx_mu_v()].reshape(ny, 1)
 
+    # Extract estimated states x_t for each sequence
+    x_hat_list = []
+
+    for i in range(N):
+        x_hat = np.zeros((T + 1, nx, 1))
+        for t in range(T + 1):
+            idx_xt = idx_x(i, t)
+            x_hat[t] = theta_hat[idx_xt].reshape(nx, 1)
+        x_hat_list.append(x_hat)
+
     # Compute residuals to estimate covariances
+    s0_hat_list = []
     w_hat_list = []
     v_hat_list = []
 
     for i in range(N):
-        x = x_list[i]
-        y = y_list[i]
-        u = u_list[i]
+        x_hat = x_hat_list[i]
+        y_seq = y_list[i]
+        u_seq = u_list[i]
 
-        # Extract estimated states x_t (t = 1 to T)
-        x_hat = np.zeros((T + 1, nx, 1))
-        x_hat[0] = x0  # Known initial state
-        for t in range(1, T + 1):
-            idx_xt = idx_x(i, t)
-            x_hat[t] = theta_hat[idx_xt].reshape(nx, 1)
+        # Initial state residuals
+        s0_hat = x_hat[0] - mu_x0_hat
+        s0_hat_list.append(s0_hat)
 
-        # Compute process noise residuals for sequence i
+        # Process noise residuals for sequence i
         w_hat = np.zeros((T, nx, 1))
         for t in range(T):
-            w_hat[t] = x_hat[t + 1] - A @ x_hat[t] - B @ u[t] - mu_w_hat
+            w_hat[t] = x_hat[t + 1] - A @ x_hat[t] - B @ u_seq[t] - mu_w_hat
         w_hat_list.append(w_hat)
 
-        # Compute measurement noise residuals for sequence i
+        # Measurement noise residuals for sequence i
         v_hat = np.zeros((T + 1, ny, 1))
         for t in range(T + 1):
-            v_hat[t] = y[t] - C @ x_hat[t] - mu_v_hat
+            v_hat[t] = y_seq[t] - C @ x_hat[t] - mu_v_hat
         v_hat_list.append(v_hat)
 
     # Estimate covariance matrices
+    Sigma_x0_hat = sum([s0 @ s0.T for s0 in s0_hat_list]) / N
     Sigma_w_hat = sum([sum([w @ w.T for w in w_hat_list[i]]) for i in range(N)]) / (N * T)
-    M_hat = sum([sum([v @ v.T for v in v_hat_list[i]]) for i in range(N)]) / (N * (T + 1))
+    Sigma_v_hat = sum([sum([v @ v.T for v in v_hat_list[i]]) for i in range(N)]) / (N * (T + 1))
 
     # --- Quantify Estimation Errors ---
 
     # Mean estimation errors (Euclidean norms)
+    error_mu_x0 = norm(mu_x0_hat - x0_mean)
     error_mu_w = norm(mu_w_hat - mu_w)
     error_mu_v = norm(mu_v_hat - mu_v)
 
     # Covariance estimation errors (Frobenius norms)
+    error_Sigma_x0 = norm(Sigma_x0_hat - x0_cov, 'fro')
     error_Sigma_w = norm(Sigma_w_hat - Sigma_w, 'fro')
-    error_M = norm(M_hat - M, 'fro')
+    error_Sigma_v = norm(Sigma_v_hat - M, 'fro')
 
     # --- Results ---
 
-    print("Estimated mu_w:")
+    print("Estimated mu_x0:")
+    print(mu_x0_hat)
+    print("\nTrue mu_x0:")
+    print(x0_mean)
+    print("Estimation Error (mu_x0): {:.6f}".format(error_mu_x0))
+
+    print("\nEstimated Sigma_x0:")
+    print(Sigma_x0_hat)
+    print("\nTrue Sigma_x0:")
+    print(x0_cov)
+    print("Estimation Error (Sigma_x0): {:.6f}".format(error_Sigma_x0))
+
+    print("\nEstimated mu_w:")
     print(mu_w_hat)
     print("\nTrue mu_w:")
     print(mu_w)
-    print("\nEstimation Error (mu_w): {:.6f}".format(error_mu_w))
+    print("Estimation Error (mu_w): {:.6f}".format(error_mu_w))
 
     print("\nEstimated Sigma_w:")
     print(Sigma_w_hat)
     print("\nTrue Sigma_w:")
     print(Sigma_w)
-    print("\nEstimation Error (Sigma_w): {:.6f}".format(error_Sigma_w))
+    print("Estimation Error (Sigma_w): {:.6f}".format(error_Sigma_w))
 
     print("\nEstimated mu_v:")
     print(mu_v_hat)
     print("\nTrue mu_v:")
     print(mu_v)
-    print("\nEstimation Error (mu_v): {:.6f}".format(error_mu_v))
+    print("Estimation Error (mu_v): {:.6f}".format(error_mu_v))
 
-    print("\nEstimated M:")
-    print(M_hat)
-    print("\nTrue M:")
+    M_hat = Sigma_v_hat
+    print("\nEstimated Sigma_v:")
+    print(Sigma_v_hat)
+    print("\nTrue Sigma_v:")
     print(M)
-    print("\nEstimation Error (M): {:.6f}".format(error_M))
-    
+    print("Estimation Error (Sigma_v): {:.6f}".format(error_Sigma_v))
     
     
     # ----- Construct Batch matrix for DRLQC-------------------
@@ -420,8 +440,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     mu_v_hat = np.tile(mu_v_hat, (T+1,1,1) )
     Sigma_w_hat = np.tile(Sigma_w_hat, (T,1,1))
     M_hat = np.tile(M_hat, (T+1,1,1))
-    x0_mean_hat = x0_mean # Assume known initial state for this experiment
-    x0_cov_hat = x0_cov
+    x0_mean_hat = mu_x0_hat
+    x0_cov_hat = Sigma_x0_hat
     
      # Create paths for saving individual results
     temp_results_path = "./temp_results/"
