@@ -103,59 +103,12 @@ def save_data(path, data):
     output = open(path, 'wb')
     pickle.dump(data, output)
     output.close()
-# Functions used in the EM algorithm
-
-def kalman_smoother(u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, x0, x0_cov):
-    nx, nu, ny = A.shape[0], B.shape[1], C.shape[0]
-    T = u.shape[0]
-
-    # Initialize state and covariance arrays
-    x_filt = np.zeros((T + 1, nx, 1))  # Filtered state estimates
-    P_filt = np.zeros((T + 1, nx, nx))  # Filtered covariances
-    x_pred = np.zeros((T + 1, nx, 1))  # Predicted states
-    P_pred = np.zeros((T + 1, nx, nx))  # Predicted covariances
-
-    # Initialize filtered state and covariance
-    x_filt[0] = x0
-    P_filt[0] = x0_cov  # Initial state covariance
-
-    # Forward Kalman Filter pass (prediction and update steps)
-    for t in range(T):
-        # Prediction step
-        x_pred[t + 1] = A @ x_filt[t] + B @ u[t] + mu_w_hat
-        P_pred[t + 1] = A @ P_filt[t] @ A.T + Sigma_w_hat
-
-        # Update step
-        y_pred = C @ x_pred[t + 1] + mu_v_hat
-        S = C @ P_pred[t + 1] @ C.T + Sigma_v_hat  # Innovation covariance
-        K = P_pred[t + 1] @ C.T @ np.linalg.inv(S)  # Kalman gain
-
-        x_filt[t + 1] = x_pred[t + 1] + K @ (y[t] - y_pred)
-        P_filt[t + 1] = (np.eye(nx) - K @ C) @ P_pred[t + 1]
-
-    # Backward Kalman Smoother pass
-    x_smooth = np.zeros((T + 1, nx, 1))  # Smoothed state estimates
-    P_smooth = np.zeros((T + 1, nx, nx))  # Smoothed covariances
-    P_cross = np.zeros((T, nx, nx))  # Cross-covariances between time steps
-
-    x_smooth[T] = x_filt[T]
-    P_smooth[T] = P_filt[T]
-
-    for t in range(T - 1, -1, -1):
-        J = P_filt[t] @ A.T @ np.linalg.inv(P_pred[t + 1])  # Smoother gain
-        x_smooth[t] = x_filt[t] + J @ (x_smooth[t + 1] - x_pred[t + 1])
-        P_smooth[t] = P_filt[t] + J @ (P_smooth[t + 1] - P_pred[t + 1]) @ J.T
-        
-        # Compute cross-covariance
-        P_cross[t] = J @ P_smooth[t + 1]
-
-    return x_filt, P_filt, x_smooth, P_smooth, P_cross
-    
 
 def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     
     lambda_ = 10
     seed = 2024 # Random seed
+    np.random.seed(seed) # fix Random seed!
     # --- Parameter for DRLQC --- #
     tol = 1e-2
     # --- ----- --------#
@@ -170,20 +123,22 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     ny = 10#output dimension
     temp = np.ones((nx, nx))
     A = 0.2*(np.eye(nx) + np.triu(temp, 1) - np.triu(temp, 2))
-    B = C = Q = R = Qf = np.eye(10) 
+    B= np.eye(10)
+    C = Q = R = Qf = np.eye(10) 
     #----------------------------
     # You can change theta_v list and lambda_list ! but you also need to change lists at plot_params4_drlqc_nonzeromean.py to get proper plot
     
     if dist=='normal':
-        theta_v_list = [ 2.0, 4.0, 6.0] # radius of noise ambiguity set
-        theta_w_list = [ 2.0, 4.0, 6.0] # radius of noise ambiguity set
-        #theta_v_list = [1.0, 2.0] # radius of noise ambiguity set
-        #theta_w_list = [1.0, 2.0] # radius of noise ambiguity set
-    else:
-        theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0] # radius of noise ambiguity set
+        theta_v_list = [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
         theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
-        #theta_v_list = [1.0] # radius of noise ambiguity set
-        #theta_w_list = [5.0] # radius of noise ambiguity set
+        theta_v_list = [2.0, 4.0, 6.0, 8.0] # radius of noise ambiguity set
+        theta_w_list = [2.0, 4.0, 6.0] # radius of noise ambiguity set
+        #theta_w_list = [6.0]
+    else:
+        theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
+        theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
+        #theta_v_list = [1.0, 2.0, 3.0] # radius of noise ambiguity set
+        #theta_w_list = [1.0, 2.0, 3.0] # radius of noise ambiguity set
     lambda_list = [3] # disturbance distribution penalty parameter # not used if use_lambda = False
     theta_w = 1.0 # will not be used if use_lambda = True
     #num_x0_samples = 15 #  N_x0 
@@ -219,205 +174,175 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.02*np.ones((nx, 1))
-        Sigma_w= 1.5*np.eye(nx)
+        mu_w = 0.1*np.ones((nx, 1))
+        Sigma_w= 0.6*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
-        x0_mean = 0.5*np.ones((nx,1))
-        x0_cov = 0.1*np.eye(nx)
+        x0_mean = 0.2*np.ones((nx,1))
+        x0_cov = 0.001*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
-        w_max = 0.3*np.ones(nx)
-        w_min = -0.2*np.ones(nx)
+        w_max = 1.5*np.ones(nx)
+        w_min = -1.2*np.ones(nx)
         mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
         Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
         #initial state distribution parameters
-        x0_max = 0.05*np.ones(nx)
-        x0_min = -0.05*np.ones(nx)
-        x0_max[-1] = 1.01
-        x0_min[-1] = 0.99
+        x0_max = 0.21*np.ones(nx)
+        x0_min = 0.19*np.ones(nx)
         x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
         x0_cov = 3.0/20.0 *np.diag((x0_max - x0_min)**2)
-     
-     
-     
-    
-
-   
     #-------Noise distribution ---------#
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 3.0*np.eye(ny) #observation noise covariance
+        M = 2.5*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
-        v_min = -0.2*np.ones(ny)
-        v_max = 0.6*np.ones(ny)
+        v_min = -1.5*np.ones(ny)
+        v_max = 2.5*np.ones(ny)
         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
-    
-    x0 = x0_mean    
-    N=1000
+    x0 = x0_mean
+    N=500
     # -------Estimate the nominal distribution-------
-    # Initialize lists to store data for all sequences
-    x_list = []
-    y_list = []
-    u_list = []
+    # Initialize estimates
+    mu_w_hat = np.zeros((nx, 1))
+    Sigma_w_hat = 1 * np.eye(nx)
+    mu_v_hat = np.zeros((ny, 1))
+    Sigma_v_hat = 1 * np.eye(ny)
 
-    # Generate N sequences of data with known initial state x[0]
+    # Kalman Filter Initialization
+    P = np.eye(nx)  # Initial estimate error covariance
+
+    epsilon = 1e-8  # Small value to ensure positive definiteness
+
+    # Forgetting factors
+    alpha_w = 0.01
+    beta_w = 0.01
+    alpha_v = 0.01
+    beta_v = 0.01
+
     for i in range(N):
-        # Initialize state, input, and output arrays for sequence i
-        x = np.zeros((T + 1, nx, 1))
-        y = np.zeros((T + 1, ny, 1))
-        u = np.zeros((T, nu, 1))
-
-        # Set initial state x[0] (known)
-        x[0] = x0
-
-    # --- Generate N sequences of data ---
-    x_list, y_list, u_list = [], [], []
-    for i in range(N):
-        x, y, u = np.zeros((T + 1, nx, 1)), np.zeros((T + 1, ny, 1)), np.zeros((T, nu, 1))
-        x[0] = x0
+        print(f"Sequence {i+1}/{N}")
+        # Initialize state estimate and covariance
+        x_hat = np.zeros((T + 1, nx, 1))
+        x_hat[0] = x0  # Known initial state
+        P = np.eye(nx)
+        P_prev = P.copy()
 
         for t in range(T):
-            if dist=="normal":
-                true_w = normal(mu_w, Sigma_w)
-            elif dist=="quadratic":
-                true_w = quadratic(w_max, w_min)
-                
-            # Sample v_t
-            if noise_dist=="normal":
-                true_v = normal(mu_v, M)
-            elif noise_dist=="quadratic":
-                true_v = quadratic(v_max, v_min)
-                        
-            x[t + 1] = A @ x[t] + B @ u[t] + true_w
-            y[t] = C @ x[t] + true_v
-        
-        x_list.append(x)
-        y_list.append(y)
-        u_list.append(u)
+            # Sample control input u_t from zero-mean Gaussian distribution
+            u_t = np.random.multivariate_normal(np.zeros(nu), np.eye(nu)).reshape(nu, 1)
+            u_t = np.zeros((nu,1))
+            # Sample true process noise and measurement noise
+            true_w = normal(mu_w, Sigma_w)
+            true_v = normal(mu_v, M)
 
-    # --- EM Algorithm Implementation with Kalman Smoother ---
-    max_iterations, tolerance = 1000, 1e-6
-    mu_w_hat, Sigma_w_hat = np.zeros((nx, 1)), np.eye(nx)
-    mu_v_hat, Sigma_v_hat = np.zeros((ny, 1)), np.eye(ny)
-    
-    mu_w_hat = np.mean([x_list[i][1:] - A @ x_list[i][:-1] - B @ u_list[i] for i in range(N)], axis=(0, 1))
-    mu_v_hat = np.mean([y_list[i] - C @ x_list[i] for i in range(N)], axis=(0, 1))
+            # State update (true system)
+            if t == 0:
+                x_true = x0
+            else:
+                x_true = x_next_true
 
+            x_next_true = A @ x_true + B @ u_t + true_w
 
-    alpha = 0.1  # Smoothing parameter for parameter updates
-    lambda_reg_w = 1e-4  # Regularization factor for covariance matrices
-    lambda_reg_v = 1e-4  # Regularization factor for covariance matrices
-    
-    for iteration in range(max_iterations):
-        print(f"Iteration {iteration + 1}")
-        # Store previous parameter estimates for convergence checking
-        mu_w_prev = mu_w_hat.copy()
-        Sigma_w_prev = Sigma_w_hat.copy()
-        mu_v_prev = mu_v_hat.copy()
-        Sigma_v_prev = Sigma_v_hat.copy()
-        # Initialize accumulators
-        sum_E_w, sum_E_ww = np.zeros((nx, 1)), np.zeros((nx, nx))
-        sum_E_v, sum_E_vv = np.zeros((ny, 1)), np.zeros((ny, ny))
-        sum_Cov_w, sum_Cov_v = np.zeros((nx, nx)), np.zeros((ny, ny))
-        total_w_samples, total_v_samples = 0, 0
+            # Measurement
+            y_t = C @ x_true + true_v
 
-        for i in range(N):
-            u, y = u_list[i], y_list[i]
+            # Time Update (Prediction)
+            x_pred = A @ x_hat[t] + B @ u_t + mu_w_hat
+            P_pred = A @ P @ A.T + Sigma_w_hat + epsilon * np.eye(nx)
 
-            # Run Kalman Smoother for state estimation
-            x_filt, P_filt, x_smooth, P_smooth, P_cross = kalman_smoother(
-                u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, x0_mean, x0_cov
-            )
+            # Measurement Prediction
+            y_pred = C @ x_pred + mu_v_hat
 
-            T_seq = u.shape[0]
-            for t in range(T_seq):
-                # Expected process noise
-                E_w_t = x_smooth[t + 1] - A @ x_smooth[t] - B @ u[t] - mu_w_hat
-                sum_E_w += E_w_t
-                total_w_samples += 1
+            e_t = y_t - y_pred
 
-                # Covariance of process noise
-                Cov_w_t = (P_smooth[t + 1] - A @ P_cross[t] - P_cross[t].T @ A.T + A @ P_smooth[t] @ A.T)
-                sum_Cov_w += Cov_w_t
+            # Innovation Covariance
+            S = C @ P_pred @ C.T + Sigma_v_hat + epsilon * np.eye(ny)
 
-                # Accumulate for covariance update
-                sum_E_ww += Cov_w_t + E_w_t @ E_w_t.T
+            # Kalman Gain
+            try:
+                S_inv = np.linalg.inv(S)
+            except np.linalg.LinAlgError:
+                S_inv = np.linalg.pinv(S)
+                print("Warning: S matrix is singular; using pseudo-inverse.")
 
-            for t in range(T_seq + 1):
-                # Expected measurement noise
-                E_v_t = y[t] - C @ x_smooth[t] - mu_v_hat
-                sum_E_v += E_v_t
-                total_v_samples += 1
+            K = P_pred @ C.T @ S_inv
 
-                # Covariance of measurement noise
-                Cov_v_t = C @ P_smooth[t] @ C.T
-                sum_Cov_v += Cov_v_t
+            # Measurement Update
+            x_hat[t + 1] = x_pred + K @ e_t
+            P = (np.eye(nx) - K @ C) @ P_pred
 
-                # Accumulate for covariance update
-                sum_E_vv += Cov_v_t + E_v_t @ E_v_t.T
-        
-        # Update means
-        mu_w_hat = sum_E_w / total_w_samples
-        mu_v_hat = sum_E_v / total_v_samples
+            # Estimate process noise
+            w_t_hat = x_hat[t + 1] - A @ x_hat[t] - B @ u_t
 
-        # Update covariances
-        Sigma_w_hat = sum_E_ww / total_w_samples - mu_w_hat @ mu_w_hat.T + lambda_reg_w * np.eye(nx)
-        Sigma_v_hat = sum_E_vv / total_v_samples - mu_v_hat @ mu_v_hat.T + lambda_reg_v * np.eye(ny)
+            # Update process noise mean and covariance
+            mu_w_hat = (1 - alpha_w) * mu_w_hat + alpha_w * w_t_hat
+            Sigma_w_hat = (1 - beta_w) * Sigma_w_hat + beta_w * (w_t_hat @ w_t_hat.T + P - A @ P_prev @ A.T)
 
-        # Symmetrize covariances
-        Sigma_w_hat = (Sigma_w_hat + Sigma_w_hat.T) / 2
-        Sigma_v_hat = (Sigma_v_hat + Sigma_v_hat.T) / 2
-        
-        # Check convergence
-        delta_mu_w = np.linalg.norm(mu_w_hat - mu_w_prev)
-        delta_Sigma_w = np.linalg.norm(Sigma_w_hat - Sigma_w_prev, 'fro')
-        delta_mu_v = np.linalg.norm(mu_v_hat - mu_v_prev)
-        delta_Sigma_v = np.linalg.norm(Sigma_v_hat - Sigma_v_prev, 'fro')
+            # Estimate measurement noise
+            v_t_hat = e_t - C @ (x_hat[t + 1] - x_pred)
 
-        print(f"Change in mu_w: {delta_mu_w}")
-        print(f"Change in Sigma_w: {delta_Sigma_w}")
-        print(f"Change in mu_v: {delta_mu_v}")
-        print(f"Change in Sigma_v: {delta_Sigma_v}\n")
+            # Update measurement noise mean and covariance
+            mu_v_hat = (1 - alpha_v) * mu_v_hat + alpha_v * v_t_hat
+            Sigma_v_hat = (1 - beta_v) * Sigma_v_hat + beta_v * (v_t_hat @ v_t_hat.T + C @ P @ C.T)
 
-        if (delta_mu_w < tolerance and delta_Sigma_w < tolerance and
-            delta_mu_v < tolerance and delta_Sigma_v < tolerance):
-            print("Convergence achieved!")
-            break
+            # Update P_prev for next iteration
+            P_prev = P.copy()
 
-    # Compute errors in norms for means
+            # Ensure covariance matrices remain positive definite
+            Sigma_w_hat = (Sigma_w_hat + Sigma_w_hat.T) / 2 + epsilon * np.eye(nx)
+            Sigma_v_hat = (Sigma_v_hat + Sigma_v_hat.T) / 2 + epsilon * np.eye(ny)
+
+        # Optionally, print estimates after each sequence
+        #print(f"After sequence {i+1}:")
+        #print(f"Estimated mu_w_hat:\n{mu_w_hat}\n")
+        #print(f"Estimated Sigma_w_hat:\n{Sigma_w_hat}\n")
+        #print(f"Estimated mu_v_hat:\n{mu_v_hat}\n")
+        #print(f"Estimated Sigma_v_hat:\n{Sigma_v_hat}\n")
+
+    # --- Quantify Estimation Errors ---
+
+    # Mean estimation errors (Euclidean norms)
     error_mu_w = np.linalg.norm(mu_w_hat - mu_w)
     error_mu_v = np.linalg.norm(mu_v_hat - mu_v)
 
-    # Compute errors in norms for covariances
+    # Covariance estimation errors (Frobenius norms)
     error_Sigma_w = np.linalg.norm(Sigma_w_hat - Sigma_w, 'fro')
+    error_M = np.linalg.norm(Sigma_v_hat - M, 'fro')
+    
     M_hat = Sigma_v_hat
-    error_M = np.linalg.norm(M_hat - M, 'fro')
-    
-    print("\n mu_w: ", mu_w, "mu_w_hat: ", mu_w_hat)
-    print("\n Sigma_w: ", Sigma_w, "Sigma_w_hat: ", Sigma_w_hat)
-    print("\n mu_v: ", mu_v, "mu_v_hat: ", mu_v_hat)
-    print("\n Sigma_v: ", M, "Sigma_v_hat: ", M_hat)
-    
-    print("\nError Norm for mu_w (||mu_w_hat - mu_w||):", error_mu_w)
 
-    print("Error Norm for Sigma_w (Frobenius norm):", error_Sigma_w)
+    # --- Results ---
 
-    print("\nError Norm for mu_v (||mu_v_hat - mu_v||):", error_mu_v)
+    print("Estimated mu_w:")
+    print(mu_w_hat)
+    print("\nTrue mu_w:")
+    print(mu_w)
+    print("\nEstimation Error (mu_w): {:.6f}".format(error_mu_w))
 
-    print("Error Norm for Sigma_v (Frobenius norm):", error_M)
-    
-    # print("\n mu_w: ", mu_w, "mu_w_hat: ", mu_w_hat)
-    # print("\n Sigma_w: ", Sigma_w, "Sigma_w_hat: ", Sigma_w_hat)
-    # print("\n mu_v: ", mu_v, "mu_v_hat: ", mu_v_hat)
-    # print("\n Sigma_v: ", M, "Sigma_v_hat: ", M_hat)
-    
+    print("\nEstimated Sigma_w:")
+    print(Sigma_w_hat)
+    print("\nTrue Sigma_w:")
+    print(Sigma_w)
+    print("\nEstimation Error (Sigma_w): {:.6f}".format(error_Sigma_w))
+
+    print("\nEstimated mu_v:")
+    print(mu_v_hat)
+    print("\nTrue mu_v:")
+    print(mu_v)
+    print("\nEstimation Error (mu_v): {:.6f}".format(error_mu_v))
+
+    print("\nEstimated M:")
+    print(M_hat)
+    print("\nTrue M:")
+    print(M)
+    print("\nEstimation Error (M): {:.6f}".format(error_M))
     
     #exit()
+    
     # ----- Construct Batch matrix for DRLQC-------------------
     W_hat = np.zeros((nx, nx, T+1))
     V_hat = np.zeros((ny, ny, T+1))
@@ -432,7 +357,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     x0_mean_hat = x0_mean # Assume known initial state for this experiment
     x0_cov_hat = x0_cov
     
-     # Create paths for saving individual results
+    # Create paths for saving individual results
     temp_results_path = "./temp_results/"
     if not os.path.exists(temp_results_path):
         os.makedirs(temp_results_path)
@@ -451,9 +376,9 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
                 print("disturbance : ", dist, "/ noise : ", noise_dist, "/ num_noise : ", num_noise, "/ theta_w: ", theta_w, "/ theta_v : ", theta)
 
             if use_lambda:
-                path = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/ioEM/".format(dist, noise_dist)
+                path = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/ioadapt/".format(dist, noise_dist)
             else:
-                path = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/ioEM/".format(dist, noise_dist)
+                path = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/ioadapt/".format(dist, noise_dist)
                 
             if not os.path.exists(path):
                 os.makedirs(path)
@@ -599,9 +524,9 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             
             #Save all raw data
             if use_lambda:
-                rawpath = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/ioEM/raw/".format(dist, noise_dist)
+                rawpath = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/ioadapt/raw/".format(dist, noise_dist)
             else:
-                rawpath = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/ioEM/raw/".format(dist, noise_dist)
+                rawpath = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/ioadapt/raw/".format(dist, noise_dist)
                 
             if not os.path.exists(rawpath):
                 os.makedirs(rawpath)
@@ -641,20 +566,20 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
                 DRCE_lambda[idx_w][idx_v] = load_pickle_data(drce_lambda_filename)
                 
     if use_lambda:
-        path = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/ioEM/".format(dist, noise_dist)
+        path = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/ioadapt/".format(dist, noise_dist)
     else:
-        path = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/ioEM/".format(dist, noise_dist)
+        path = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/ioadapt/".format(dist, noise_dist)
         save_data(path + 'nonzero_wdrc_lambda.pkl',WDRC_lambda)
         save_data(path + 'nonzero_drce_lambda.pkl',DRCE_lambda)
         
     
             
     print("Params data generation Completed !")
-    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list plot_params4_usingio_EM.py is as desired")
+    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list plot_params4_usingio_adapt.py is as desired")
     if use_lambda:
-        print("Now use : python plot_params4_usingio_EM.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot_params4_usingio_adapt.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
     else:
-        print("Now use : python plot_params4_usingio_EM.py --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot_params4_usingio_adapt.py --dist "+ dist + " --noise_dist " + noise_dist)
     
             
 
