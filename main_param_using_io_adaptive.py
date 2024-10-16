@@ -131,12 +131,12 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if dist=='normal':
         theta_v_list = [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
         theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
-        theta_v_list = [2.0, 4.0, 6.0, 8.0] # radius of noise ambiguity set
-        theta_w_list = [2.0, 4.0, 6.0] # radius of noise ambiguity set
+        theta_v_list = [1.0, 2.0, 4.0, 6.0, 8.0] # radius of noise ambiguity set
+        theta_w_list = [2.0, 4.0, 6.0, 8.0] # radius of noise ambiguity set
         #theta_w_list = [6.0]
     else:
-        theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
-        theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
+        theta_v_list = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
+        theta_w_list = [2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
         #theta_v_list = [1.0, 2.0, 3.0] # radius of noise ambiguity set
         #theta_w_list = [1.0, 2.0, 3.0] # radius of noise ambiguity set
     lambda_list = [3] # disturbance distribution penalty parameter # not used if use_lambda = False
