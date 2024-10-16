@@ -174,8 +174,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.2*np.ones((nx, 1))
-        Sigma_w= 0.5*np.eye(nx)
+        mu_w = 0.3*np.ones((nx, 1))
+        Sigma_w= 0.8*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
@@ -198,7 +198,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         v_max = None
         v_min = None
         M = 3.0*np.eye(ny) #observation noise covariance
-        mu_v = 0.2*np.ones((ny, 1))
+        mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -1.5*np.ones(ny)
         v_max = 2.5*np.ones(ny)
@@ -206,7 +206,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
     
     x0 = x0_mean    
-    N=500
+    N=1000
     # -------Estimate the nominal distribution-------
     # Initialize estimates
     mu_w_hat = np.zeros((nx, 1))
@@ -222,7 +222,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     # Kalman Filter Initialization
     P = np.eye(nx)  # Initial estimate error covariance
 
-    epsilon = 1e-6  # Small value to ensure positive definiteness
+    epsilon = 1e-8  # Small value to ensure positive definiteness
 
     for i in range(N):
         print(f"Sequence {i+1}/{N}")
