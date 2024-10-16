@@ -131,7 +131,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if dist=='normal':
         theta_v_list = [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
         theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
-        theta_v_list = [2.0, 4.0, 6.0] # radius of noise ambiguity set
+        theta_v_list = [2.0, 4.0, 6.0, 8.0] # radius of noise ambiguity set
         theta_w_list = [2.0, 4.0, 6.0] # radius of noise ambiguity set
         #theta_w_list = [6.0]
     else:
@@ -174,8 +174,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.3*np.ones((nx, 1))
-        Sigma_w= 0.8*np.eye(nx)
+        mu_w = 0.2*np.ones((nx, 1))
+        Sigma_w= 0.6*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
@@ -192,7 +192,6 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         x0_min = 0.19*np.ones(nx)
         x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
         x0_cov = 3.0/20.0 *np.diag((x0_max - x0_min)**2)
-        
     #-------Noise distribution ---------#
     if noise_dist =="normal":
         v_max = None
@@ -204,8 +203,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         v_max = 2.5*np.ones(ny)
         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
-    
-    x0 = x0_mean    
+    x0 = x0_mean
     N=1000
     # -------Estimate the nominal distribution-------
     # Initialize estimates
