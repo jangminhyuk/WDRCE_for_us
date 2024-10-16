@@ -174,8 +174,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.2*np.ones((nx, 1))
-        Sigma_w= 0.6*np.eye(nx)
+        mu_w = 0.1*np.ones((nx, 1))
+        Sigma_w= 0.8*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None

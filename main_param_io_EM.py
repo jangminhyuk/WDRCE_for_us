@@ -258,7 +258,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
     
     x0 = x0_mean    
-    N=10
+    N=1000
     # -------Estimate the nominal distribution-------
     # Initialize lists to store data for all sequences
     x_list = []
