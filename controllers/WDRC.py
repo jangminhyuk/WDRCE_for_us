@@ -60,6 +60,7 @@ class WDRC:
 
         if use_lambda==True or use_optimal_lambda==True: # Use pre-computed lambda
             self.lambda_ = np.array([lambda_])
+            print("self.lambda_ :  ", self.lambda_)
         else:
             self.lambda_ = self.optimize_penalty() #optimize penalty parameter for theta
             
@@ -378,6 +379,7 @@ class WDRC:
     def backward(self):
         offline_start = time.time()
         self.P[self.T] = self.Qf
+        print("lambda: ",self.lambda_)
         if self.lambda_ <= np.max(np.linalg.eigvals(self.P[self.T])) or self.lambda_<= np.max(np.linalg.eigvals(self.P[self.T] + self.S[self.T])):
             print("t={}: False!".format(self.T))
 
