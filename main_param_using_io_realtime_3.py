@@ -335,8 +335,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.4*np.ones((nx, 1))
-        Sigma_w= 0.8*np.eye(nx)
+        mu_w = 0.1*np.ones((nx, 1))
+        Sigma_w= 1.5*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
@@ -357,8 +357,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 1.5*np.eye(ny) #observation noise covariance
-        mu_v = 0.3*np.ones((ny, 1))
+        M = 2.0*np.eye(ny) #observation noise covariance
+        mu_v = 0.2*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -1.5*np.ones(ny)
         v_max = 2.5*np.ones(ny)
@@ -482,8 +482,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     mu_v_hat = mu_v_hat_best
     Sigma_w_hat = Sigma_w_hat_best
     M_hat = Sigma_v_hat_best 
-    x0_mean_hat = mu_x0_hat_best
-    x0_cov_hat = Sigma_x0_hat_best
+    
     # ----- Construct Batch matrix for DRLQC-------------------
     W_hat = np.zeros((nx, nx, T+1))
     V_hat = np.zeros((ny, ny, T+1))
@@ -495,8 +494,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     mu_v_hat = np.tile(mu_v_hat, (T+1,1,1) )
     Sigma_w_hat = np.tile(Sigma_w_hat, (T,1,1))
     M_hat = np.tile(M_hat, (T+1,1,1))
-    #x0_mean_hat = x0_mean # Assume known initial state for this experiment
-    #x0_cov_hat = x0_cov
+    x0_mean_hat = x0_mean # Assume known initial state for this experiment
+    x0_cov_hat = x0_cov
     
     # Create paths for saving individual results
     temp_results_path = "./temp_results/"

@@ -180,7 +180,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         x0_max = None
         x0_min = None
         x0_mean = 0.2*np.ones((nx,1))
-        x0_cov = 0.01*np.eye(nx)
+        x0_cov = 0.001*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
         w_max = 1.5*np.ones(nx)
@@ -196,7 +196,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 3.0*np.eye(ny) #observation noise covariance
+        M = 1.0*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -1.5*np.ones(ny)
@@ -218,7 +218,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     k_v = 0  # Number of samples for v
 
     # Kalman Filter Initialization
-    P = x0_cov # placeholder
+    P = np.eye(nx)  # Initial estimate error covariance
 
     epsilon = 1e-8  # Small value to ensure positive definiteness
 
@@ -226,91 +226,91 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         print(f"Sequence {i+1}/{N}")
         # Initialize state estimate and covariance
         x_hat = np.zeros((T + 1, nx, 1))
-        u = np.zeros((T, nu, 1))
-        x_pred = x0_mean 
+        x_pred = x0_mean  # Known initial state
         P_pred = x0_cov
-        if dist=="normal":
-            x_true = normal(x0_mean, x0_cov) # initial
-        elif dist=="quadratic":
-            x_true = quadratic(x0_max, x0_min) # initial
-            
+
         for t in range(T):
-            
-            
+            # Sample control input u_t from zero-mean Gaussian distribution
+            u_t = np.random.multivariate_normal(np.zeros(nu), np.eye(nu)).reshape(nu, 1)
+
             # Sample true process noise and measurement noise
-            if dist=="normal":
-                true_w = normal(mu_w, Sigma_w)
-                true_v = normal(mu_v, M)
-            elif dist=="quadratic":
-                true_w = quadratic(w_max, w_min)
-                true_v = quadratic(v_max, v_min)
-            
-            # Predict Step 
-            if t>0:
-                x_pred = A @ x_hat[t-1] + B @ u[t] + mu_w_hat # x_t|t-1
-                P_pred = A @ P @ A.T + Sigma_w_hat + epsilon * np.eye(nx) # X_t|t-1
-            
+            true_w = normal(mu_w, Sigma_w)
+            true_v = normal(mu_v, M)
+
+            # State update (true system)
+            if t == 0:
+                x_true = normal(x0_mean, x0_cov)
+            else:
+                x_true = x_next_true
+
             # Measurement
             y_t = C @ x_true + true_v
-            
-            # Measurement update
-            S = C @ P_pred @ C.T + Sigma_v_hat #+ epsilon * np.eye(ny)
-            # Check for singularity
+
+            # Measurement Update Step
+            y_pred = C @ x_pred + mu_v_hat
+            S = C @ P_pred @ C.T + Sigma_v_hat + epsilon * np.eye(ny)
+
+            # Check for singularity and adjust if necessary
             try:
                 S_inv = np.linalg.inv(S)
             except np.linalg.LinAlgError:
                 S_inv = np.linalg.pinv(S)
                 print("Warning: S matrix is singular; using pseudo-inverse.")
-            
+
             K = P_pred @ C.T @ S_inv
 
             # Update estimate
-            x_hat[t] = x_pred + K @ (y_t - C @ x_pred - mu_v_hat) # x_t|t
-            P = (np.eye(nx) - K @ C) @ P_pred # X_t|t
-                
-            # State update (true system)
-            x_true = A @ x_true + B @ u[t] + true_w # true x_t+1
-            
-            if t>0:
-                # w_{t-1}
-                w_t_hat = x_hat[t] - A @ x_hat[t-1] - B @ u[t-1] - mu_w_hat
+            x_hat[t] = x_pred + K @ (y_t - y_pred)
+            P = (np.eye(nx) - K @ C) @ P_pred
+
             v_t_hat = y_t - C @ x_hat[t] - mu_v_hat
-            
+
+                      
             # Update mu_v_hat and C_v
             k_v += 1
             delta_v = v_t_hat - mu_v_hat
             mu_v_hat += delta_v / k_v
             delta_v2 = v_t_hat - mu_v_hat
-            C_v = (delta_v @ delta_v2.T)
+            C_v += delta_v @ delta_v2.T
             
-            # Update estimates recursively using Welford's algorithm
-            # Update mu_w_hat and C_w
-            if t>0:
+            if t!=0:
+                # Compute residuals
+                w_t_hat = A @ x_hat[t] + B @ u_t + mu_w_hat - x_hat[t]
+                
+                # Update estimates recursively using Welford's algorithm
+                # Update mu_w_hat and C_w
                 k_w += 1
                 delta_w = w_t_hat - mu_w_hat
                 mu_w_hat += delta_w / k_w
                 delta_w2 = w_t_hat - mu_w_hat
-                C_w = (delta_w @ delta_w2.T)
+                C_w += delta_w @ delta_w2.T
 
-            
-
-            # Update covariance estimates
-            if k_w > 1:
-                Sigma_w_hat += (C_w - Sigma_w_hat) / (k_w)
-            else:
-                Sigma_w_hat = np.eye(nx)
+                # Update covariance estimates
+                if k_w > 1:
+                    Sigma_w_hat = C_w / (k_w - 1) + epsilon * np.eye(nx)
+                else:
+                    Sigma_w_hat = np.eye(nx)
 
             if k_v > 1:
-                Sigma_v_hat += (C_v - Sigma_v_hat) / (k_v)
+                Sigma_v_hat = C_v / (k_v - 1) + epsilon * np.eye(ny)
             else:
                 Sigma_v_hat = np.eye(ny)
+                
+            
+            x_next_true = A @ x_true + B @ u_t + true_w
+            # Predict Step
+            x_pred = A @ x_hat[t] + B @ u_t + mu_w_hat
+            P_pred = A @ P @ A.T + Sigma_w_hat + epsilon * np.eye(nx)
+            
 
-        
-        # print(f"After sequence {i+1}:")
-        # print(f"Estimated mu_w_hat:\n{mu_w_hat}\n")
-        # print(f"Estimated Sigma_w_hat:\n{Sigma_w_hat}\n")
-        # print(f"Estimated mu_v_hat:\n{mu_v_hat}\n")
-        # print(f"Estimated Sigma_v_hat:\n{Sigma_v_hat}\n")
+
+
+        # Optionally, print estimates after each sequence
+        print(f"After sequence {i+1}:")
+        print(f"Estimated mu_w_hat:\n{mu_w_hat}\n")
+        print(f"Estimated Sigma_w_hat:\n{Sigma_w_hat}\n")
+        print(f"Estimated mu_v_hat:\n{mu_v_hat}\n")
+        print(f"Estimated Sigma_v_hat:\n{Sigma_v_hat}\n")
 
     # --- Quantify Estimation Errors ---
 
@@ -594,8 +594,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dist', required=False, default="normal", type=str) #disurbance distribution (normal or quadratic)
-    parser.add_argument('--noise_dist', required=False, default="normal", type=str) #noise distribution (normal or quadratic)
+    parser.add_argument('--dist', required=False, default="quadratic", type=str) #disurbance distribution (normal or quadratic)
+    parser.add_argument('--noise_dist', required=False, default="quadratic", type=str) #noise distribution (normal or quadratic)
     parser.add_argument('--num_sim', required=False, default=500, type=int) #number of simulation runs
     parser.add_argument('--num_samples', required=False, default=15, type=int) #number of disturbance samples
     parser.add_argument('--num_noise_samples', required=False, default=15, type=int) #number of noise samples

@@ -131,8 +131,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if dist=='normal':
         theta_v_list = [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
         theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
-        theta_v_list = [1.0, 2.0, 4.0, 6.0, 8.0] # radius of noise ambiguity set
-        theta_w_list = [2.0, 4.0, 6.0, 8.0] # radius of noise ambiguity set
+        theta_v_list = [2.0, 4.0, 6.0] # radius of noise ambiguity set
+        theta_w_list = [2.0, 4.0, 6.0] # radius of noise ambiguity set
         #theta_w_list = [6.0]
     else:
         theta_v_list = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
@@ -164,8 +164,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     DRCE_lambda = pickle.load(DRCE_lambda_file)
     DRCE_lambda_file.close()
     
-    print("WDRC_lambda")
-    print(WDRC_lambda)
+    #print("WDRC_lambda")
+    #print(WDRC_lambda)
     # Uncomment Below 2 lines to save optimal lambda, using your own distributions.
     WDRC_lambda = np.zeros((len(theta_w_list),len(theta_v_list)))
     DRCE_lambda = np.zeros((len(theta_w_list),len(theta_v_list)))
@@ -174,13 +174,13 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.2*np.ones((nx, 1))
-        Sigma_w= 0.6*np.eye(nx)
+        mu_w = 0.1*np.ones((nx, 1))
+        Sigma_w= 0.5*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
         x0_mean = 0.2*np.ones((nx,1))
-        x0_cov = 0.001*np.eye(nx)
+        x0_cov = 0.01*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
         w_max = 1.5*np.ones(nx)
@@ -196,7 +196,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 3.0*np.eye(ny) #observation noise covariance
+        M = 2.0*np.eye(ny) #observation noise covariance
         mu_v = 0.2*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -1.5*np.ones(ny)
@@ -204,7 +204,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
     x0 = x0_mean
-    N=500
+    N=1000
     # -------Estimate the nominal distribution-------
     # Initialize estimates
     mu_w_hat = np.zeros((nx, 1))
@@ -223,46 +223,137 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     alpha_v = 0.01
     beta_v = 0.01
 
-    for i in range(N):
-        print(f"Sequence {i+1}/{N}")
-        # Initialize state estimate and covariance
-        x_hat = np.zeros((T + 1, nx, 1))
-        x_hat[0] = x0  # Known initial state
-        P = np.eye(nx)
-        P_prev = P.copy()
+    # for i in range(N):
+    #     print(f"Sequence {i+1}/{N}")
+    #     x_hat = np.zeros((T + 1, nx, 1))
+    #     u = np.zeros((T, nu, 1))
+    #     x_pred = x0_mean 
+    #     P_pred = x0_cov
+    #     if dist=="normal":
+    #         x_true = normal(x0_mean, x0_cov) # initial
+    #     elif dist=="quadratic":
+    #         x_true = quadratic(x0_max, x0_min) # initial
+            
+    #     for t in range(T):
+    #         # Sample control input u_t from zero-mean Gaussian distribution
+    #         #u_t = np.random.multivariate_normal(np.zeros(nu), np.eye(nu)).reshape(nu, 1)
+    #         #u_t = np.zeros((nu,1))
+    #         # Sample true process noise and measurement noise
+    #         P_prior_prev = P_pred
+    #         P_post_prev = P
+    #         if dist=="normal":
+    #             true_w = normal(mu_w, Sigma_w)
+    #             true_v = normal(mu_v, M)
+    #         elif dist=="quadratic":
+    #             true_w = quadratic(w_max, w_min)
+    #             true_v = quadratic(v_max, v_min)
+
+    #         # Predict Step 
+    #         if t>0:
+    #             x_pred = A @ x_hat[t-1] + B @ u[t] + mu_w_hat # x_t|t-1
+    #             P_pred = A @ P @ A.T + Sigma_w_hat + epsilon * np.eye(nx) # X_t|t-1
+            
+    #         # Measurement
+    #         y_t = C @ x_true + true_v
+            
+    #         e_t = y_t - C @ x_pred - mu_v_hat
+            
+    #         # Measurement update
+    #         S = C @ P_pred @ C.T + Sigma_v_hat #+ epsilon * np.eye(ny)
+    #         # Check for singularity
+    #         try:
+    #             S_inv = np.linalg.inv(S)
+    #         except np.linalg.LinAlgError:
+    #             S_inv = np.linalg.pinv(S)
+    #             print("Warning: S matrix is singular; using pseudo-inverse.")
+            
+    #         K = P_pred @ C.T @ S_inv
+
+    #         # Update estimate
+    #         x_hat[t] = x_pred + K @ (e_t) # x_t|t
+    #         P = (np.eye(nx) - K @ C) @ P_pred # X_t|t
+                
+    #         # State update (true system)
+    #         x_true = A @ x_true + B @ u[t] + true_w # true x_t+1
+            
+    #         if t>0:
+    #             # w_{t-1}
+    #             w_t_hat = x_hat[t] - A @ x_hat[t-1] - B @ u[t-1] - mu_w_hat
+    #             mu_w_hat = (1 - alpha_w) * mu_w_hat + alpha_w * w_t_hat
+    #             #Sigma_w_hat = (1 - beta_w) * Sigma_w_hat + beta_w * (w_t_hat @ w_t_hat.T + P_post_prev - A @ P_prior_prev @ A.T)
+    #             Sigma_w_hat = (1 - beta_w) * Sigma_w_hat + beta_w * (w_t_hat @ w_t_hat.T + P + K @ e_t @ w_t_hat.T - A @ P @ A.T)
+
+    #         v_t_hat = y_t - C @ x_hat[t] - mu_v_hat
+    #         #mu_v_hat = (1 - alpha_v) * mu_v_hat + alpha_v * v_t_hat
+    #         mu_v_hat = (1 - alpha_v) * mu_v_hat + alpha_v * e_t
+    #         Sigma_v_hat = (1 - beta_v) * Sigma_v_hat + beta_v * (e_t @ e_t.T + C @ P_pred @ C.T)
+    #         #Sigma_v_hat = (1 - beta_v) * Sigma_v_hat + beta_v * (v_t_hat @ v_t_hat.T + C @ P @ C.T)
+
+    #         # Update P_prev for next iteration
+    #         #P_prev = P.copy()
+
+    #         # Ensure covariance matrices remain positive definite
+    #         Sigma_w_hat = (Sigma_w_hat + Sigma_w_hat.T) / 2 + epsilon * np.eye(nx)
+    #         Sigma_v_hat = (Sigma_v_hat + Sigma_v_hat.T) / 2 + epsilon * np.eye(ny)
+
+
+    # # --- Quantify Estimation Errors ---
+
+    # # Mean estimation errors (Euclidean norms)
+    # error_mu_w = np.linalg.norm(mu_w_hat - mu_w)
+    # error_mu_v = np.linalg.norm(mu_v_hat - mu_v)
+
+    # # Covariance estimation errors (Frobenius norms)
+    # error_Sigma_w = np.linalg.norm(Sigma_w_hat - Sigma_w, 'fro')
+    # error_M = np.linalg.norm(Sigma_v_hat - M, 'fro')
+    for seq in range(N):
+        print(f"Sequence {seq+1}/{N}")
+
+        # Initialize state estimates
+        x_hat = np.zeros((T + 1, nx, 1))  # State estimates
+        P = np.eye(nx)  # Initial error covariance
+        x_true = x0_mean.copy()
+        x_hat[0] = x0_mean.copy()
+
+        # Initialize estimates for this sequence
+        mu_w_hat = np.zeros((nx, 1))
+        Sigma_w_hat = np.eye(nx)
+        mu_v_hat = np.zeros((ny, 1))
+        Sigma_v_hat = np.eye(ny)
+        
+        # data dave
+        mu_w_hat_total = np.zeros((nx, 1))
+        Sigma_w_hat_total = np.eye(nx)
+        mu_v_hat_total = np.zeros((ny, 1))
+        Sigma_v_hat_total = np.eye(ny)
 
         for t in range(T):
-            # Sample control input u_t from zero-mean Gaussian distribution
-            u_t = np.random.multivariate_normal(np.zeros(nu), np.eye(nu)).reshape(nu, 1)
-            u_t = np.zeros((nu,1))
-            # Sample true process noise and measurement noise
-            true_w = normal(mu_w, Sigma_w)
-            true_v = normal(mu_v, M)
+            # ------- Generate True Process and Measurement Noise -------
+            if dist=="normal":
+                true_w = normal(mu_w, Sigma_w)
+                true_v = normal(mu_v, M)
+            elif dist=="quadratic":
+                true_w = quadratic(w_max, w_min)
+                true_v = quadratic(v_max, v_min)
 
-            # State update (true system)
-            if t == 0:
-                x_true = x0
+            # ------- Predict Step -------
+            if t > 0:
+                x_pred = A @ x_hat[t - 1] + B @ np.zeros((nu, 1)) + mu_w_hat  # Control input is zero
+                P_pred = A @ P @ A.T + Sigma_w_hat + epsilon * np.eye(nx)
             else:
-                x_true = x_next_true
+                x_pred = x0_mean
+                P_pred = x0_cov + epsilon * np.eye(nx)
 
-            x_next_true = A @ x_true + B @ u_t + true_w
-
-            # Measurement
+            # ------- Measurement -------
             y_t = C @ x_true + true_v
 
-            # Time Update (Prediction)
-            x_pred = A @ x_hat[t] + B @ u_t + mu_w_hat
-            P_pred = A @ P @ A.T + Sigma_w_hat + epsilon * np.eye(nx)
+            # ------- Innovation -------
+            e_t = y_t - C @ x_pred - mu_v_hat
 
-            # Measurement Prediction
-            y_pred = C @ x_pred + mu_v_hat
-
-            e_t = y_t - y_pred
-
-            # Innovation Covariance
+            # ------- Innovation Covariance -------
             S = C @ P_pred @ C.T + Sigma_v_hat + epsilon * np.eye(ny)
 
-            # Kalman Gain
+            # ------- Kalman Gain -------
             try:
                 S_inv = np.linalg.inv(S)
             except np.linalg.LinAlgError:
@@ -271,49 +362,50 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
 
             K = P_pred @ C.T @ S_inv
 
-            # Measurement Update
-            x_hat[t + 1] = x_pred + K @ e_t
-            P = (np.eye(nx) - K @ C) @ P_pred
+            # ------- Update Step -------
+            x_updated = x_pred + K @ e_t
+            P_updated = (np.eye(nx) - K @ C) @ P_pred
 
-            # Estimate process noise
-            w_t_hat = x_hat[t + 1] - A @ x_hat[t] - B @ u_t
+            # ------- State Update -------
+            x_true = A @ x_true + B @ np.zeros((nu, 1)) + true_w  # Control input is zero
 
-            # Update process noise mean and covariance
-            mu_w_hat = (1 - alpha_w) * mu_w_hat + alpha_w * w_t_hat
-            Sigma_w_hat = (1 - beta_w) * Sigma_w_hat + beta_w * (w_t_hat @ w_t_hat.T + P - A @ P_prev @ A.T)
+            # ------- Update Noise Statistics -------
+            # Update measurement noise estimates
+            mu_v_hat = (1 - alpha_v) * mu_v_hat + alpha_v * e_t
+            Sigma_v_hat = (1 - beta_v) * Sigma_v_hat + beta_v * (e_t @ e_t.T + C @ P_pred @ C.T)
 
-            # Estimate measurement noise
-            v_t_hat = e_t - C @ (x_hat[t + 1] - x_pred)
+            # Update process noise estimates (only for t > 0)
+            if t > 0:
+                r_t = x_updated - A @ x_hat[t - 1] - B @ np.zeros((nu, 1)) - mu_w_hat
+                mu_w_hat = (1 - alpha_w) * mu_w_hat + alpha_w * r_t
+                Sigma_w_hat = (1 - beta_w) * Sigma_w_hat + beta_w * (r_t @ r_t.T + P_updated - A @ P @ A.T)
 
-            # Update measurement noise mean and covariance
-            mu_v_hat = (1 - alpha_v) * mu_v_hat + alpha_v * v_t_hat
-            Sigma_v_hat = (1 - beta_v) * Sigma_v_hat + beta_v * (v_t_hat @ v_t_hat.T + C @ P @ C.T)
-
-            # Update P_prev for next iteration
-            P_prev = P.copy()
-
-            # Ensure covariance matrices remain positive definite
+            # ------- Ensure Positive Definiteness -------
             Sigma_w_hat = (Sigma_w_hat + Sigma_w_hat.T) / 2 + epsilon * np.eye(nx)
             Sigma_v_hat = (Sigma_v_hat + Sigma_v_hat.T) / 2 + epsilon * np.eye(ny)
 
-        # Optionally, print estimates after each sequence
-        #print(f"After sequence {i+1}:")
-        #print(f"Estimated mu_w_hat:\n{mu_w_hat}\n")
-        #print(f"Estimated Sigma_w_hat:\n{Sigma_w_hat}\n")
-        #print(f"Estimated mu_v_hat:\n{mu_v_hat}\n")
-        #print(f"Estimated Sigma_v_hat:\n{Sigma_v_hat}\n")
+            # ------- Save Estimates -------
+            x_hat[t] = x_updated
+            P = P_updated
 
-    # --- Quantify Estimation Errors ---
+        # ------- Accumulate Estimates for Averaging -------
+        mu_w_hat_total += mu_w_hat
+        Sigma_w_hat_total += Sigma_w_hat
+        mu_v_hat_total += mu_v_hat
+        Sigma_v_hat_total += Sigma_v_hat
 
-    # Mean estimation errors (Euclidean norms)
-    error_mu_w = np.linalg.norm(mu_w_hat - mu_w)
-    error_mu_v = np.linalg.norm(mu_v_hat - mu_v)
+    # ------- Average Estimates -------
+    mu_w_hat_avg = mu_w_hat_total / N
+    Sigma_w_hat_avg = Sigma_w_hat_total / N
+    mu_v_hat_avg = mu_v_hat_total / N
+    Sigma_v_hat_avg = Sigma_v_hat_total / N
 
-    # Covariance estimation errors (Frobenius norms)
-    error_Sigma_w = np.linalg.norm(Sigma_w_hat - Sigma_w, 'fro')
-    error_M = np.linalg.norm(Sigma_v_hat - M, 'fro')
-    
-    M_hat = Sigma_v_hat
+    # ------- Quantify Estimation Errors -------
+    error_mu_w = np.linalg.norm(mu_w_hat_avg - mu_w)
+    error_mu_v = np.linalg.norm(mu_v_hat_avg - mu_v)
+    error_Sigma_w = np.linalg.norm(Sigma_w_hat_avg - Sigma_w, 'fro')
+    error_M = np.linalg.norm(Sigma_v_hat_avg - M, 'fro')
+    M_hat = Sigma_v_hat_avg
 
     # --- Results ---
 
@@ -341,7 +433,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     print(M)
     print("\nEstimation Error (M): {:.6f}".format(error_M))
     
-    #exit()
+    exit()
     
     # ----- Construct Batch matrix for DRLQC-------------------
     W_hat = np.zeros((nx, nx, T+1))
