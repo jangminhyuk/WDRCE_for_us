@@ -189,8 +189,8 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 1.0*np.ones((nx, 1))
-        Sigma_w= 0.1*np.eye(nx)
+        mu_w = 0.1*np.ones((nx, 1))
+        Sigma_w= 0.5*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
@@ -212,8 +212,8 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
     if noise_dist1 =="normal":
         v_max = None
         v_min = None
-        M = 1.5*np.eye(ny) #observation noise covariance
-        mu_v = 0.5*np.ones((ny, 1))
+        M = 0.5*np.eye(ny) #observation noise covariance
+        mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist1 =="quadratic":
         v_min = -1.0*np.ones(ny)
         v_max = 1.5*np.ones(ny)
@@ -225,9 +225,9 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
     #-------Estimate the nominal distribution-------
     # Initialize estimates
     mu_w_hat = np.zeros((nx, 1))
-    Sigma_w_hat = 0.1 * np.eye(nx)
+    Sigma_w_hat = 1 * np.eye(nx)
     mu_v_hat = np.zeros((ny, 1))
-    Sigma_v_hat = 0.1 * np.eye(ny)
+    Sigma_v_hat = 1 * np.eye(ny)
 
     # Kalman Filter Initialization
     P = np.eye(nx)  # Initial estimate error covariance
@@ -385,9 +385,9 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
             
             
             if use_lambda:
-                path = "./results/{}_{}/finite/multiple/params_lambda/vehicle_io/".format(dist, noise_dist)
+                path = "./results/{}_{}/finite/multiple/params_lambda/vehicle_io_adapt/".format(dist, noise_dist)
             else:
-                path = "./results/{}_{}/finite/multiple/params_thetas/vehicle_io/".format(dist, noise_dist)
+                path = "./results/{}_{}/finite/multiple/params_thetas/vehicle_io_adapt/".format(dist, noise_dist)
             
             if not os.path.exists(path):
                 os.makedirs(path)
@@ -510,11 +510,11 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
                 )        
                 
     print("Params data generation Completed !")
-    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list in plot_vehicle_io.py is as desired")
+    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list in plot_params_vehicle_adapt.py is as desired")
     if use_lambda:
-        print("Now use : python plot_params_vehicle_io.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot_params_vehicle_adapt.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
     else:
-        print("Now use : python plot_params_vehicle_io.py --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot_params_vehicle_adapt.py --dist "+ dist + " --noise_dist " + noise_dist)
     
             
 
