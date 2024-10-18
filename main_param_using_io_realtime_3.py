@@ -215,7 +215,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         x0_max = None
         x0_min = None
         x0_mean = 0.2*np.ones((nx,1))
-        x0_cov = 0.01*np.eye(nx)
+        x0_cov = 0.1*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
         w_max = 1.2*np.ones(nx)
