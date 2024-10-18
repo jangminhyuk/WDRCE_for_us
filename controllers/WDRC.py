@@ -273,20 +273,20 @@ class WDRC:
             P_var = cp.Parameter((self.nx,self.nx))
             lambda_ = cp.Parameter(1)
             S_var = cp.Parameter((self.nx,self.nx))
-            Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
-            #Sigma_hat = cp.Parameter((self.nx,self.nx))
+            #Sigma_hat_12_var = cp.Parameter((self.nx,self.nx))
+            Sigma_hat = cp.Parameter((self.nx,self.nx))
             M_hat = cp.Parameter((self.ny,self.ny))
             X_bar = cp.Parameter((self.nx,self.nx))
             
             obj = cp.Maximize(cp.trace((P_var - lambda_*np.eye(self.nx)) @ Sigma) + 2*lambda_*cp.trace(Y) + cp.trace(S_var @ X))
             
             constraints = [
-                    # cp.bmat([[Sigma_hat, Y],
-                    #      [Y.T, Sigma]
-                    #      ]) >> 0,
-                    cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
-                             [Y, np.eye(self.nx)]
-                             ]) >> 0,
+                    cp.bmat([[Sigma_hat, Y],
+                         [Y.T, Sigma]
+                         ]) >> 0,
+                    # cp.bmat([[Sigma_hat_12_var @ Sigma @ Sigma_hat_12_var, Y],
+                    #          [Y, np.eye(self.nx)]
+                    #          ]) >> 0,
                     Sigma >> 0,
                     X_pred >> 0,
                     cp.bmat([[X_pred - X, X_pred @ self.C.T],
@@ -294,7 +294,7 @@ class WDRC:
                             ]) >> 0,        
                     X_pred == self.A @ X_bar @ self.A.T + Sigma,
                     self.C @ X_pred @ self.C.T + M_hat >> 0,
-                    Y >> 0,
+                    #Y >> 0,
                     X >> 0
                     ]
             prob = cp.Problem(obj, constraints)
@@ -306,8 +306,8 @@ class WDRC:
         params[0].value = P
         params[1].value = lambda_
         params[2].value = S
-        #params[3].value = Sigma_hat
-        params[3].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-4*np.eye(self.nx)))
+        params[3].value = Sigma_hat
+        #params[3].value = np.real(scipy.linalg.sqrtm(Sigma_hat + 1e-4*np.eye(self.nx)))
         params[4].value = M_hat
         params[5].value = x_cov
         
@@ -396,7 +396,7 @@ class WDRC:
             
             sigma_wc[t], _, status = self.solve_sdp(self.sdp_prob, self.lambda_, self.M_hat[t], self.x_cov[t], self.P[t+1], self.S[t+1], self.Sigma_hat[t])
             if status in ["infeasible", "unbounded"]:
-                print(status, 'False!!!!!!!!!!!!!')
+                print(status, 'False!!!!!!!!!!!!!', "lambda: ", self.lambda_)
             self.x_cov[t+1] = self.kalman_filter_cov(self.M_hat[t+1], self.x_cov[t], sigma_wc[t])
         
         

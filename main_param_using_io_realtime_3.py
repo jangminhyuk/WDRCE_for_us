@@ -335,13 +335,13 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.1*np.ones((nx, 1))
-        Sigma_w= 1.5*np.eye(nx)
+        mu_w = 0.5*np.ones((nx, 1))
+        Sigma_w= 0.5*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
         x0_mean = 0.2*np.ones((nx,1))
-        x0_cov = 0.001*np.eye(nx)
+        x0_cov = 0.1*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
         w_max = 1.5*np.ones(nx)
@@ -357,7 +357,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 2.0*np.eye(ny) #observation noise covariance
+        M = 3.0*np.eye(ny) #observation noise covariance
         mu_v = 0.2*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -1.5*np.ones(ny)
@@ -394,7 +394,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     log_lh_best = -np.inf
     
     
-    max_iter = 1000
+    max_iter = 500
     
     x_hat = np.zeros((max_iter, N+1, nx, 1))
     P_hat = np.zeros((max_iter, N+1, nx, nx))
@@ -480,8 +480,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     print("Nominal distributions are ready")
     mu_w_hat = mu_w_hat_best
     mu_v_hat = mu_v_hat_best
-    Sigma_w_hat = Sigma_w_hat_best
-    M_hat = Sigma_v_hat_best 
+    Sigma_w_hat = Sigma_w_hat_best+1e-4*np.eye(nx)
+    M_hat = Sigma_v_hat_best +1e-4*np.eye(ny)
     
     # ----- Construct Batch matrix for DRLQC-------------------
     W_hat = np.zeros((nx, nx, T+1))
@@ -539,10 +539,11 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             if use_optimal_lambda == True:
                 lambda_ = WDRC_lambda[idx_w][idx_v]
             #print(lambda_)
+            
+            drce = DRCE(lambda_, theta_w, theta, theta_x0, T, dist, noise_dist, system_data, mu_w_hat, Sigma_w_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat,  M_hat, x0_mean_hat, x0_cov_hat, use_lambda, use_optimal_lambda)
             wdrc = WDRC(lambda_, theta_w, T, dist, noise_dist, system_data, mu_w_hat, Sigma_w_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat, M_hat, x0_mean_hat, x0_cov_hat, use_lambda, use_optimal_lambda)
             if use_optimal_lambda == True:
                 lambda_ = DRCE_lambda[idx_w][idx_v]
-            drce = DRCE(lambda_, theta_w, theta, theta_x0, T, dist, noise_dist, system_data, mu_w_hat, Sigma_w_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat,  M_hat, x0_mean_hat, x0_cov_hat, use_lambda, use_optimal_lambda)
             lqg = LQG(T, dist, noise_dist, system_data, mu_w_hat, Sigma_w_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat, M_hat , x0_mean_hat, x0_cov_hat)
         
             drlqc.solve_sdp()
