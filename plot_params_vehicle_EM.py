@@ -143,9 +143,10 @@ if __name__ == "__main__":
     
     theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
     theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
-    
+    theta_v_list = [1.0, 2.0, 4.0, 6.0]
     if args.dist=='normal':
         lambda_list = [15, 20, 25, 30, 35, 40, 45, 50] # disturbance distribution penalty parameter
+        lambda_list = [20, 30,  40, 50] # disturbance distribution penalty parameter
     else:
         lambda_list = [15, 20, 25, 30, 35, 40, 45, 50] # disturbance distribution penalty parameter
     # Regular expression pattern to extract numbers from file names
