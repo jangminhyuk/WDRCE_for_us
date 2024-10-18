@@ -264,7 +264,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
                         #'initial_state_mean', 'initial_state_covariance'
                       ])
 
-    max_iter = 1000
+    max_iter = 500
     loglikelihoods = np.zeros(max_iter)
     errors_mu_w = []
     errors_mu_v = []
