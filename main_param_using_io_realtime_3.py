@@ -12,6 +12,7 @@ from controllers.DRCE import DRCE
 from controllers.DRLQC import DRLQC
 from numpy.linalg import lstsq, norm
 from joblib import Parallel, delayed
+from pykalman import KalmanFilter
 import os
 import pickle
 reg_eps = 1e-6
@@ -126,145 +127,18 @@ def generate_data(T, nx, ny, nu, A, B, C, mu_w, Sigma_w, mu_v, M, x0_mean, x0_co
             true_w = quadratic(w_max, w_min)
             true_v = quadratic(v_max, v_min)
 
-        # True state update (process model)
-        x_true = A @ x_true + B @ u[t] + true_w  # true x_t+1
-        x_true_all[t + 1] = x_true
 
         # Measurement (observation model)
         y_t = C @ x_true + true_v #Note that y's index is shifted, i.e. y[0] correspondst to y_1
         y_all[t] = y_t
+        
+        # True state update (process model)
+        x_true = A @ x_true + B @ u[t] + true_w  # true x_t+1
+        x_true_all[t + 1] = x_true
+
 
     return x_true_all, y_all
 
-
-def kalman_filter(A, B, C, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, y, T):
-      # Get the dimensions
-    nx = A.shape[0]  # State dimension
-    ny = C.shape[0]  # Measurement dimension
-
-    # Initialize the arrays for storing results
-    x_hat = np.zeros((T+1, nx, 1))  # Filtered state estimates
-    P_hat = np.zeros((T+1, nx, nx))  # Filtered covariance estimates
-    x_hat_pred = np.zeros((T+1, nx, 1))  # Predicted state estimates
-    P_hat_pred = np.zeros((T+1, nx, nx))  # Predicted covariance estimates
-
-    # Set initial state estimates
-    x_hat[0] = mu_x0_hat
-    P_hat[0] = Sigma_x0_hat
-
-    # Kalman filter algorithm
-    for t in range(1,T+1):
-        # 1. Prediction step
-        x_hat_pred[t] = A @ x_hat[t-1] + mu_w_hat
-        P_hat_pred[t] = A @ P_hat[t-1] @ A.T + Sigma_w_hat
-
-        if np.any(np.linalg.eigvals(P_hat_pred[t]) <= 0):
-            print(f'(KF_ Non PSD pred covariance at time {t}!', np.min(np.linalg.eigvals(P_hat_pred[t])))
-            P_hat_pred[t] += (-np.min(np.linalg.eigvals(P_hat_pred[t])) + reg_eps)*np.eye(nx)
-
-
-        # 2. Update step
-        K_t = np.linalg.solve(C @ P_hat_pred[t] @ C.T + Sigma_v_hat + reg_eps*np.eye(ny), P_hat_pred[t] @ C.T)  # Kalman gain
-        x_hat[t] = x_hat_pred[t] + K_t @ (y[t-1] - C @ x_hat_pred[t] - mu_v_hat)
-        P_hat[t] = (np.eye(nx) - K_t @ C) @ P_hat_pred[t]
-        
-        if np.any(np.linalg.eigvals(P_hat[t]) <= 0):
-            print(f'(KF_ Non PSD covariance at time {t}!', np.min(np.linalg.eigvals(P_hat[t])))
-            P_hat[t] += (-np.min(np.linalg.eigvals(P_hat[t])) + reg_eps)*np.eye(nx)
-
-    return x_hat, P_hat, x_hat_pred, P_hat_pred, K_t
-
-
-def kalman_smoother(x_hat, P_hat, x_hat_pred, P_hat_pred, A, B, C, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, K):
-    # Get the state dimension
-    nx = A.shape[0]
-    T = x_hat.shape[0]-1
-    
-    # Initialize arrays for storing results
-    x_tilde = np.zeros((T+1, nx, 1))  # Smoothed state estimates
-    P_tilde = np.zeros((T+1, nx, nx))  # Smoothed covariance estimates
-    V_tilde = np.zeros((T, nx, nx))    # Lag-1 autocovariance of smoothed state estimates
-    J = np.zeros((T, nx, nx)) 
-    
-    # The final smoothed estimate is the same as the final filtered estimate
-    x_tilde[T] = x_hat[T]
-    P_tilde[T] = P_hat[T]
-
-    # Kalman smoother algorithm (backward pass)
-    for t in range(T-1, -1, -1):
-        # Calculate the smoother gain
-        J[t] = np.linalg.solve(P_hat_pred[t+1], P_hat[t] @ A.T)
-
-        # Smoothed state estimate
-        x_tilde[t] = x_hat[t] + J[t] @ (x_tilde[t+1] - x_hat_pred[t+1])
-
-        # Smoothed covariance estimate
-        P_tilde[t] = P_hat[t] + J[t] @ (P_tilde[t+1] - P_hat_pred[t+1]) @ J[t].T
-        if np.any(np.linalg.eigvals(P_tilde[t]) <= 0):
-            print(f'(KS) Non PSD covariance at time {t}!', np.min(np.linalg.eigvals(P_tilde[t])))
-            P_tilde[t] += (-np.min(np.linalg.eigvals(P_tilde[t])) + reg_eps)*np.eye(nx)
-
-    V_tilde[T-1] = (np.eye(nx) - K @ C ) @ A @ P_tilde[T-1] #V_{T,T-1}
-    for t in range(T-2, 1, -1):
-        # Calculate the Lag-1 autocovariance of the smoothed state
-        V_tilde[t] = P_tilde[t+1] @ J[t].T + J[t+1] @ (V_tilde[t+1] - A @ P_tilde[t+1]) @ J[t].T #V_{t+1,t}
-
-    return x_tilde, P_tilde, V_tilde
-
-    
-def log_likelihood(y_all, A, C, x_tilde, P_tilde, V_tilde, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat):
-    nx = mu_x0_hat.shape[0]  # State dimension
-    ny = mu_v_hat.shape[0]  # Measurement dimension
-    T = x_tilde.shape[0]-1
-    
-    Sigma_w_hat_inv = np.linalg.inv(Sigma_w_hat + reg_eps*np.eye(nx))
-    Sigma_v_hat_inv = np.linalg.inv(Sigma_v_hat + reg_eps*np.eye(ny))
-    Sigma_x0_hat_inv = np.linalg.inv(Sigma_x0_hat + reg_eps*np.eye(nx))
-    c = - 0.5*(T*(nx + ny) + nx)*np.log(2*np.pi) - T/2*np.log(np.linalg.det(Sigma_v_hat) + reg_eps) - T/2*np.log(np.linalg.det(Sigma_w_hat) + reg_eps) - 0.5*np.log(np.linalg.det(Sigma_x0_hat) + reg_eps) - 0.5*np.trace(Sigma_x0_hat_inv @ P_tilde[0]) - 0.5*(x_tilde[0] - mu_x0_hat).T @ Sigma_x0_hat_inv @ (x_tilde[0] - mu_x0_hat)
-
-    for t in range(T):
-        c += -0.5*( (y_all[t] - C @ x_tilde[t+1] - mu_v_hat).T @ Sigma_v_hat_inv @ (y_all[t] - C @ x_tilde[t+1] - mu_v_hat)  \
-                  + (x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat).T @ Sigma_w_hat_inv @ (x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat) \
-                  + np.trace(C.T @ Sigma_v_hat_inv @ C @ P_tilde[t+1]) \
-                  + np.trace(Sigma_w_hat_inv @ P_tilde[t+1]) \
-                  - 2 * np.trace(Sigma_w_hat_inv @ A @ V_tilde[t].T) )\
-        
-    return c
-    
-
-def log_lh_max(x_tilde, P_tilde, V_tilde, A, C, y_all):
-
-    nx = A.shape[0]  # State dimension
-    ny = C.shape[0]  # Measurement dimension
-    #print(x_tilde.shape[0])
-    T = x_tilde.shape[0]-1
-    
-    mu_x0_hat_new = x_tilde[0] 
-    Sigma_x0_hat_new = P_tilde[0] + reg_eps * np.eye(nx)
-    
-    mu_w_hat_new = np.zeros((nx, 1))
-    mu_v_hat_new = np.zeros((ny, 1))
-    Sigma_w_hat_new = np.zeros((nx, nx)) 
-    Sigma_v_hat_new = np.zeros((ny, ny))
-    
-    for t in range(T): 
-        mu_w_hat_new += x_tilde[t+1] - A @ x_tilde[t]         
-        mu_v_hat_new += y_all[t] - C @ x_tilde[t+1]
-        
-    mu_w_hat_new = 1/T*mu_w_hat_new
-    mu_v_hat_new = 1/T*mu_v_hat_new
-    
-    for t in range(T):
-        #print(x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat_new, y_all[t] - C @ x_tilde[t+1] - mu_v_hat_new)
-        Sigma_w_hat_new += (x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat_new) @ (x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat_new).T + \
-                           A @ P_tilde[t] @ A.T + P_tilde[t+1] - 2 * A @ V_tilde[t].T
-        Sigma_v_hat_new += (y_all[t] - C @ x_tilde[t+1] - mu_v_hat_new) @ (y_all[t] - C @ x_tilde[t+1] - mu_v_hat_new).T + C @ P_tilde[t+1] @ C.T
-    
-    Sigma_w_hat_new = 1/T*Sigma_w_hat_new + reg_eps * np.eye(nx)
-    Sigma_v_hat_new = 1/T*Sigma_v_hat_new + reg_eps * np.eye(ny)
-        
-        
-    return mu_x0_hat_new, mu_w_hat_new, mu_v_hat_new, Sigma_x0_hat_new, Sigma_w_hat_new, Sigma_v_hat_new
 def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     
     lambda_ = 10
@@ -292,8 +166,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if dist=='normal':
         theta_v_list = [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
         theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
-        theta_v_list = [2.0, 4.0, 6.0] # radius of noise ambiguity set
-        theta_w_list = [2.0, 4.0, 6.0] # radius of noise ambiguity set
+        theta_v_list = [2.0, 4.0] # radius of noise ambiguity set
+        theta_w_list = [2.0, 4.0] # radius of noise ambiguity set
         #theta_w_list = [6.0]
     else:
         theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] # radius of noise ambiguity set
@@ -335,8 +209,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.5*np.ones((nx, 1))
-        Sigma_w= 0.5*np.eye(nx)
+        mu_w = 0.3*np.ones((nx, 1))
+        Sigma_w= 0.6*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
@@ -357,7 +231,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 3.0*np.eye(ny) #observation noise covariance
+        M = 1.0*np.eye(ny) #observation noise covariance
         mu_v = 0.2*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -1.5*np.ones(ny)
@@ -368,87 +242,52 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     print(f'real data: \n mu_w: {mu_w}, \n mu_v: {mu_v}, \n Sigma_w: {Sigma_w}, \n Sigma_v: {M}')
     
     
-    N = 1000 # horizon for data generation
+    print(f'real data: mu_w: {mu_w}, mu_v: {mu_v}, Sigma_w: {Sigma_w}, Sigma_v: {M}')
+    N = 1000
     x_all, y_all = generate_data(N, nx, ny, nu, A, B, C, mu_w, Sigma_w, mu_v, M, x0_mean, x0_cov, x0_max, x0_min, w_max, w_min, v_max, v_min, dist)
     
-    eps_log = 1e-6
-    eps_param = 1e-6
-    
-    
-    # -------Estimate the nominal distribution-------
+    y_all = y_all.squeeze()
+    eps_param = 1e-5
+    eps_log = 1e-4
     # Initialize estimates
-    mu_w_hat = np.zeros((nx, 1))
-    mu_v_hat = np.zeros((ny, 1))
-    mu_x0_hat = x0_mean.copy()
+    mu_w_hat = np.zeros(nx)
+    mu_v_hat = np.zeros(ny)
+    mu_x0_hat = x0_mean.squeeze()
     Sigma_w_hat = np.eye(nx)
     Sigma_v_hat = np.eye(ny)
-    Sigma_x0_hat = x0_cov.copy()
+    Sigma_x0_hat = x0_cov
     
-    # save best
-    mu_w_hat_best = np.zeros((nx, 1))
-    mu_v_hat_best = np.zeros((ny, 1))
-    mu_x0_hat_best = x0_mean.copy()
-    Sigma_w_hat_best = np.eye(nx)
-    Sigma_v_hat_best = np.eye(ny)
-    Sigma_x0_hat_best = x0_cov.copy()
-    log_lh_best = -np.inf
-    
-    
-    max_iter = 500
-    
-    x_hat = np.zeros((max_iter, N+1, nx, 1))
-    P_hat = np.zeros((max_iter, N+1, nx, nx))
-    x_hat_pred = np.zeros((max_iter, N+1, nx, 1))
-    P_hat_pred = np.zeros((max_iter, N+1, nx, nx))
-    x_tilde = np.zeros((max_iter, N+1, nx, 1))
-    P_tilde = np.zeros((max_iter, N+1, nx, nx))
-    V_tilde = np.zeros((max_iter, N, nx, nx))      
-    
-    log_lh = np.zeros(max_iter+1)
+    kf = KalmanFilter(A, C, Sigma_w_hat, Sigma_v_hat, mu_w_hat, mu_v_hat, mu_x0_hat, Sigma_x0_hat,
+                      em_vars=[
+                        'transition_covariance', 'observation_covariance',
+                        'transition_offsets', 'observation_offsets',
+                        #'initial_state_mean', 'initial_state_covariance'
+                      ])
 
+    max_iter = 1000
+    loglikelihoods = np.zeros(max_iter)
+    errors_mu_w = []
+    errors_mu_v = []
+    errors_mu_x0 = []
+    errors_Sigma_w = []
+    errors_Sigma_v = []
+    errors_Sigma_x0 = []
 
+    
     for i in range(max_iter):
-        print(f'\n--------Iteration {i}----------')
-        #---------E-Step------------
-        x_hat[i], P_hat[i], x_hat_pred[i], P_hat_pred[i], K = kalman_filter(A, B, C, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, y_all, N)   
-        x_tilde[i], P_tilde[i], V_tilde[i] = kalman_smoother(x_hat[i], P_hat[i], x_hat_pred[i], P_hat_pred[i], A, B, C, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, K)
-    
-        log_lh[i] = log_likelihood(y_all, A, C, x_tilde[i], P_tilde[i], V_tilde[i], mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat)
+        print(f'------- Iteration {i} ------------')
+        kf = kf.em(X=y_all, n_iter=1)
+        loglikelihoods[i] = kf.loglikelihood(y_all)
         
-        
-        #---------M-Step------------
-        mu_x0_hat_new, mu_w_hat_new, mu_v_hat_new, Sigma_x0_hat_new, Sigma_w_hat_new, Sigma_v_hat_new = log_lh_max(x_tilde[i], P_tilde[i], V_tilde[i], A, C, y_all)
+
+        Sigma_w_hat = kf.transition_covariance
+        Sigma_v_hat = kf.observation_covariance
+        mu_w_hat = kf.transition_offsets
+        mu_v_hat = kf.observation_offsets
+        mu_x0_hat = kf.initial_state_mean
+        Sigma_x0_hat = kf.initial_state_covariance
 
 
-        Sigma_w_hat = Sigma_w_hat_new.copy()
-        Sigma_v_hat = Sigma_v_hat_new.copy()
-        Sigma_x0_hat = Sigma_x0_hat_new.copy()
-
-        
-        if np.any(np.linalg.eigvals(Sigma_w_hat) <= 0):
-            print(f'Non PSD covariance of w at iter {i}!', np.linalg.det(Sigma_w_hat))
-            Sigma_w_hat += -np.min(np.linalg.eigvals(Sigma_w_hat))*np.eye(nx)
-                                   
-        if np.any(np.linalg.eigvals(Sigma_v_hat) <= 0):
-            print(f'Non PSD covariance of v at iter {i}!', np.linalg.det(Sigma_v_hat))
-            Sigma_v_hat += -np.min(np.linalg.eigvals(Sigma_v_hat))*np.eye(ny)
-                                   
-        if np.any(np.linalg.eigvals(Sigma_x0_hat) <= 0):
-            print(f'Non PSD covariance of w at iter {i}!', np.linalg.det(Sigma_x0_hat))
-            Sigma_x0_hat += -np.min(np.linalg.eigvals(Sigma_x0_hat))*np.eye(nx)
-            
-        mu_w_hat = mu_w_hat_new.copy()
-        mu_v_hat = mu_v_hat_new.copy()
-        mu_x0_hat = mu_x0_hat_new.copy()
-        
-        if log_lh[i]>log_lh_best:
-            mu_w_hat_best = mu_w_hat_new.copy()
-            mu_v_hat_best = mu_v_hat_new.copy()
-            mu_x0_hat_best = x0_mean.copy()
-            Sigma_w_hat_best = Sigma_w_hat_new.copy()
-            Sigma_v_hat_best = Sigma_v_hat_new.copy()
-            Sigma_x0_hat_best = x0_cov.copy()
-            log_lh_best = log_lh[i]
 
         # Mean estimation errors (Euclidean norms)
         error_mu_w = np.linalg.norm(mu_w_hat - mu_w)
@@ -460,6 +299,16 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         error_Sigma_v = np.linalg.norm(Sigma_v_hat - M, 'fro')
         error_Sigma_x0 = np.linalg.norm(Sigma_x0_hat - x0_cov, 'fro')
         
+                
+        # Store errors for plotting
+        errors_mu_w.append(error_mu_w)
+        errors_mu_v.append(error_mu_v)
+        errors_mu_x0.append(error_mu_x0)
+        errors_Sigma_w.append(error_Sigma_w)
+        errors_Sigma_v.append(error_Sigma_v)
+        errors_Sigma_x0.append(error_Sigma_x0)
+
+        
         
         print("\nEstimation Error (mu_w): {:.6f}".format(error_mu_w))
         print("\nEstimation Error (Sigma_w): {:.6f}".format(error_Sigma_w))
@@ -467,22 +316,42 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         print("\nEstimation Error (M): {:.6f}".format(error_Sigma_v))
         print("\nEstimation Error (x0_mean): {:.6f}".format(error_mu_x0))
         print("\nEstimation Error (x0_cov): {:.6f}".format(error_Sigma_x0))
-        print("\nLog-Likelihood: {:.6f}".format(log_lh[i]))
+        print("\nLog-Likelihood: {:.6f}".format(loglikelihoods[i]))
         
         params_conv = np.all([error_mu_w <= eps_param, error_mu_v <= eps_param, error_mu_x0 <= eps_param, np.all(error_Sigma_w <= eps_param), np.all(error_Sigma_v <= eps_param), np.all(error_Sigma_x0 <= eps_param)])
         
         if i>0:
-            if log_lh[i] - log_lh[i-1] <= eps_log and params_conv:
+            if loglikelihoods[i] - loglikelihoods[i-1] <= eps_log and params_conv:
                 print('Converged!')
                 break
     #exit()
     # Choose the best one
     print("Nominal distributions are ready")
-    mu_w_hat = mu_w_hat_best
-    mu_v_hat = mu_v_hat_best
-    Sigma_w_hat = Sigma_w_hat_best+1e-4*np.eye(nx)
-    M_hat = Sigma_v_hat_best +1e-4*np.eye(ny)
     
+    
+    print("Estimated mu_w:")
+    print(mu_w_hat)
+    print("\nTrue mu_w:")
+    print(mu_w)
+    print("\nEstimation Error (mu_w): {:.6f}".format(error_mu_w))
+
+    print("\nEstimated Sigma_w:")
+    print(Sigma_w_hat)
+    print("\nTrue Sigma_w:")
+    print(Sigma_w)
+    print("\nEstimation Error (Sigma_w): {:.6f}".format(error_Sigma_w))
+
+    print("\nEstimated mu_v:")
+    print(mu_v_hat)
+    print("\nTrue mu_v:")
+    print(mu_v)
+
+    M_hat = Sigma_v_hat
+    print("\nEstimated M:")
+    print(M_hat)
+    print("\nTrue M:")
+    print(M)
+    #exit()
     # ----- Construct Batch matrix for DRLQC-------------------
     W_hat = np.zeros((nx, nx, T+1))
     V_hat = np.zeros((ny, ny, T+1))
@@ -494,8 +363,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     mu_v_hat = np.tile(mu_v_hat, (T+1,1,1) )
     Sigma_w_hat = np.tile(Sigma_w_hat, (T,1,1))
     M_hat = np.tile(M_hat, (T+1,1,1))
-    x0_mean_hat = x0_mean # Assume known initial state for this experiment
-    x0_cov_hat = x0_cov
+    #x0_mean_hat = x0_mean # Assume known initial state for this experiment
+    #x0_cov_hat = x0_cov
     
     # Create paths for saving individual results
     temp_results_path = "./temp_results/"
@@ -537,13 +406,11 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             #-----Initialize controllers-----
             drlqc = DRLQC(theta_w, theta, theta_x0, T, dist, noise_dist, system_data, mu_w_hat, W_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat, V_hat, x0_mean_hat, x0_cov_hat, tol)
             if use_optimal_lambda == True:
-                lambda_ = WDRC_lambda[idx_w][idx_v]
-            #print(lambda_)
-            
-            drce = DRCE(lambda_, theta_w, theta, theta_x0, T, dist, noise_dist, system_data, mu_w_hat, Sigma_w_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat,  M_hat, x0_mean_hat, x0_cov_hat, use_lambda, use_optimal_lambda)
-            wdrc = WDRC(lambda_, theta_w, T, dist, noise_dist, system_data, mu_w_hat, Sigma_w_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat, M_hat, x0_mean_hat, x0_cov_hat, use_lambda, use_optimal_lambda)
-            if use_optimal_lambda == True:
                 lambda_ = DRCE_lambda[idx_w][idx_v]
+            drce = DRCE(lambda_, theta_w, theta, theta_x0, T, dist, noise_dist, system_data, mu_w_hat, Sigma_w_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat,  M_hat, x0_mean_hat, x0_cov_hat, use_lambda, use_optimal_lambda)
+            if use_optimal_lambda == True:
+                lambda_ = WDRC_lambda[idx_w][idx_v]
+            wdrc = WDRC(lambda_, theta_w, T, dist, noise_dist, system_data, mu_w_hat, Sigma_w_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat, M_hat, x0_mean_hat, x0_cov_hat, use_lambda, use_optimal_lambda)
             lqg = LQG(T, dist, noise_dist, system_data, mu_w_hat, Sigma_w_hat, x0_mean, x0_cov, x0_max, x0_min, mu_w, Sigma_w, w_max, w_min, v_max, v_min, mu_v, mu_v_hat, M_hat , x0_mean_hat, x0_cov_hat)
         
             drlqc.solve_sdp()

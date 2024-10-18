@@ -15,6 +15,7 @@ and Distributionally Robust Control and Estimation(WDRCE) [Ours]
 - **[MOSEK (>= 9.3)](https://www.mosek.com/)**
 - (pickle5) if relevant error occurs
 - joblib (>=1.4.2)
+- pykalmin (>=0.9.7)
 ## Additional Requirements to run DRLQC
 - Pytorch 2.0
 - [Pymanopt] https://pymanopt.org/
