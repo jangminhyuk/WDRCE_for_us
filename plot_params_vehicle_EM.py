@@ -95,6 +95,8 @@ def summarize_lambda(lqg_lambda_values, lqg_theta_v_values, lqg_cost_values ,wdr
     # Set labels
     ax.set_xlabel(r'$\lambda$', fontsize=16)
     ax.set_ylabel(r'$\theta_v$', fontsize=16)
+    ax.set_yticks([1.0, 2.0, 3.0, 4.0])
+    
     ax.set_zlabel(r'Total Cost', fontsize=16, rotation=90, labelpad=3)
     
     ax.view_init(elev=10, azim=110)
