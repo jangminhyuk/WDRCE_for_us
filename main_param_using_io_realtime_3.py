@@ -264,7 +264,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
                         #'initial_state_mean', 'initial_state_covariance'
                       ])
 
-    max_iter = 500
+    max_iter = 10
     loglikelihoods = np.zeros(max_iter)
     errors_mu_w = []
     errors_mu_v = []
@@ -328,7 +328,9 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     # Choose the best one
     print("Nominal distributions are ready")
     
-    
+    ## Reshape
+    mu_w_hat = np.array(mu_w_hat).reshape(-1,1)
+    mu_v_hat = np.array(mu_v_hat).reshape(-1,1)
     print("Estimated mu_w:")
     print(mu_w_hat)
     print("\nTrue mu_w:")
@@ -363,8 +365,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     mu_v_hat = np.tile(mu_v_hat, (T+1,1,1) )
     Sigma_w_hat = np.tile(Sigma_w_hat, (T,1,1))
     M_hat = np.tile(M_hat, (T+1,1,1))
-    #x0_mean_hat = x0_mean # Assume known initial state for this experiment
-    #x0_cov_hat = x0_cov
+    x0_mean_hat = x0_mean # Assume known initial state for this experiment
+    x0_cov_hat = x0_cov
     
     # Create paths for saving individual results
     temp_results_path = "./temp_results/"
