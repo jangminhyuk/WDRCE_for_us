@@ -182,6 +182,8 @@ if __name__ == "__main__":
         lambda_list = [15, 20, 25, 30, 35, 40, 45, 50] # disturbance distribution penalty parameter
         theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
         theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        theta_v_list = [ 2.0,  4.0, 6.0]
+        theta_w_list = [2.0,  4.0,  6.0]
         
     # Regular expression pattern to extract numbers from file names
     
