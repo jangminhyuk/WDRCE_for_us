@@ -192,10 +192,12 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
     # You can change theta_v list and lambda_list ! but you also need to change lists at plot_params.py to get proper plot
     
     theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    theta_v_list = [1.0, 2.0, 4.0, 6.0]
     theta_w_list = [0.1, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
     
     if dist=='normal':
         lambda_list = [15, 20, 25, 30, 35, 40, 45, 50] # disturbance distribution penalty parameter
+        lambda_list = [20, 30,  40, 50] # disturbance distribution penalty parameter
     else:
         lambda_list = [15, 20, 25, 30, 35, 40, 45, 50] # disturbance distribution penalty parameter
     
@@ -222,13 +224,13 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.1*np.ones((nx, 1))
-        Sigma_w= 0.5*np.eye(nx)
+        mu_w = 1.0*np.ones((nx, 1))
+        Sigma_w= 0.1*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
         x0_mean = 0.1*np.ones((nx,1))
-        x0_cov = 0.01*np.eye(nx)
+        x0_cov = 0.1*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
         w_max = 0.8*np.ones(nx)
@@ -246,7 +248,7 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
         v_max = None
         v_min = None
         M = 0.5*np.eye(ny) #observation noise covariance
-        mu_v = 0.1*np.ones((ny, 1))
+        mu_v = 1.0*np.ones((ny, 1))
     elif noise_dist1 =="quadratic":
         v_min = -1.0*np.ones(ny)
         v_max = 1.5*np.ones(ny)
@@ -276,7 +278,7 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
                         #'initial_state_mean', 'initial_state_covariance'
                       ])
 
-    max_iter = 500
+    max_iter = 200
     loglikelihoods = np.zeros(max_iter)
     errors_mu_w = []
     errors_mu_v = []
