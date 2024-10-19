@@ -105,7 +105,7 @@ def save_data(path, data):
     output.close()
 # Functions used in the EM algorithm
 
-def kalman_smoother(u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, x0):
+def kalman_smoother(u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, x0, x0_cov):
     nx, nu, ny = A.shape[0], B.shape[1], C.shape[0]
     T = u.shape[0]
 
@@ -117,7 +117,7 @@ def kalman_smoother(u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat,
 
     # Initialize filtered state and covariance
     x_filt[0] = x0
-    P_filt[0] = np.eye(nx)  # Initial state covariance
+    P_filt[0] = x0_cov  # Initial state covariance
 
     # Forward Kalman Filter pass (prediction and update steps)
     for t in range(T):
@@ -145,6 +145,8 @@ def kalman_smoother(u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat,
         J = P_filt[t] @ A.T @ np.linalg.inv(P_pred[t + 1])  # Smoother gain
         x_smooth[t] = x_filt[t] + J @ (x_smooth[t + 1] - x_pred[t + 1])
         P_smooth[t] = P_filt[t] + J @ (P_smooth[t + 1] - P_pred[t + 1]) @ J.T
+        
+        # Compute cross-covariance
         P_cross[t] = J @ P_smooth[t + 1]
 
     return x_filt, P_filt, x_smooth, P_smooth, P_cross
@@ -155,7 +157,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     lambda_ = 10
     seed = 2024 # Random seed
     # --- Parameter for DRLQC --- #
-    tol = 1e-3
+    tol = 1e-2
     # --- ----- --------#
     #noisedist = [noise_dist1]
     num_noise_list = [num_noise_samples]
@@ -173,8 +175,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     # You can change theta_v list and lambda_list ! but you also need to change lists at plot_params4_drlqc_nonzeromean.py to get proper plot
     
     if dist=='normal':
-        theta_v_list = [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
-        theta_w_list = [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0] # radius of noise ambiguity set
+        theta_v_list = [ 2.0, 4.0, 6.0] # radius of noise ambiguity set
+        theta_w_list = [ 2.0, 4.0, 6.0] # radius of noise ambiguity set
         #theta_v_list = [1.0, 2.0] # radius of noise ambiguity set
         #theta_w_list = [1.0, 2.0] # radius of noise ambiguity set
     else:
@@ -185,7 +187,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     lambda_list = [3] # disturbance distribution penalty parameter # not used if use_lambda = False
     theta_w = 1.0 # will not be used if use_lambda = True
     #num_x0_samples = 15 #  N_x0 
-    theta_x0 = 0.5 # radius of initial state ambiguity set
+    theta_x0 = 1.0 # radius of initial state ambiguity set
     use_lambda = False # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
     use_optimal_lambda = False
     if use_lambda:
@@ -217,13 +219,13 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.3*np.ones((nx, 1))
-        Sigma_w= 0.6*np.eye(nx)
+        mu_w = 0.02*np.ones((nx, 1))
+        Sigma_w= 1.5*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
         x0_mean = 0.5*np.ones((nx,1))
-        x0_cov = 0.001*np.eye(nx)
+        x0_cov = 0.1*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
         w_max = 0.3*np.ones(nx)
@@ -256,7 +258,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
     
     x0 = x0_mean    
-    N=10
+    N=1000
     # -------Estimate the nominal distribution-------
     # Initialize lists to store data for all sequences
     x_list = []
@@ -313,12 +315,15 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     
     for iteration in range(max_iterations):
         print(f"Iteration {iteration + 1}")
-        
-        mu_w_prev, Sigma_w_prev = mu_w_hat.copy(), Sigma_w_hat.copy()
-        mu_v_prev, Sigma_v_prev = mu_v_hat.copy(), Sigma_v_hat.copy()
-
+        # Store previous parameter estimates for convergence checking
+        mu_w_prev = mu_w_hat.copy()
+        Sigma_w_prev = Sigma_w_hat.copy()
+        mu_v_prev = mu_v_hat.copy()
+        Sigma_v_prev = Sigma_v_hat.copy()
+        # Initialize accumulators
         sum_E_w, sum_E_ww = np.zeros((nx, 1)), np.zeros((nx, nx))
         sum_E_v, sum_E_vv = np.zeros((ny, 1)), np.zeros((ny, ny))
+        sum_Cov_w, sum_Cov_v = np.zeros((nx, nx)), np.zeros((ny, ny))
         total_w_samples, total_v_samples = 0, 0
 
         for i in range(N):
@@ -326,32 +331,44 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
 
             # Run Kalman Smoother for state estimation
             x_filt, P_filt, x_smooth, P_smooth, P_cross = kalman_smoother(
-                u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, x0
+                u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, x0_mean, x0_cov
             )
 
-            # M-step: Process noise expectations
             T_seq = u.shape[0]
             for t in range(T_seq):
+                # Expected process noise
                 E_w_t = x_smooth[t + 1] - A @ x_smooth[t] - B @ u[t] - mu_w_hat
                 sum_E_w += E_w_t
                 total_w_samples += 1
-                E_ww_t = P_smooth[t + 1] + x_smooth[t + 1] @ x_smooth[t + 1].T
-                sum_E_ww += E_ww_t
-            
-            # Measurement noise expectations
+
+                # Covariance of process noise
+                Cov_w_t = (P_smooth[t + 1] - A @ P_cross[t] - P_cross[t].T @ A.T + A @ P_smooth[t] @ A.T)
+                sum_Cov_w += Cov_w_t
+
+                # Accumulate for covariance update
+                sum_E_ww += Cov_w_t + E_w_t @ E_w_t.T
+
             for t in range(T_seq + 1):
+                # Expected measurement noise
                 E_v_t = y[t] - C @ x_smooth[t] - mu_v_hat
                 sum_E_v += E_v_t
                 total_v_samples += 1
-                E_vv_t = E_v_t @ E_v_t.T + C @ P_smooth[t] @ C.T
-                sum_E_vv += E_vv_t
+
+                # Covariance of measurement noise
+                Cov_v_t = C @ P_smooth[t] @ C.T
+                sum_Cov_v += Cov_v_t
+
+                # Accumulate for covariance update
+                sum_E_vv += Cov_v_t + E_v_t @ E_v_t.T
         
-        # Update parameters in M-step with smoothing
-        mu_w_hat = (1 - alpha) * mu_w_hat + alpha * (sum_E_w / total_w_samples)
-        mu_v_hat = (1 - alpha) * mu_v_hat + alpha * (sum_E_v / total_v_samples)      
-        Sigma_w_hat = (1 - alpha) * Sigma_w_hat + alpha * (sum_E_ww / total_w_samples) + lambda_reg_w * np.eye(nx)
-        Sigma_v_hat = (1 - alpha) * Sigma_v_hat + alpha * (sum_E_vv / total_v_samples) + lambda_reg_v * np.eye(ny)
-        
+        # Update means
+        mu_w_hat = sum_E_w / total_w_samples
+        mu_v_hat = sum_E_v / total_v_samples
+
+        # Update covariances
+        Sigma_w_hat = sum_E_ww / total_w_samples - mu_w_hat @ mu_w_hat.T + lambda_reg_w * np.eye(nx)
+        Sigma_v_hat = sum_E_vv / total_v_samples - mu_v_hat @ mu_v_hat.T + lambda_reg_v * np.eye(ny)
+
         # Symmetrize covariances
         Sigma_w_hat = (Sigma_w_hat + Sigma_w_hat.T) / 2
         Sigma_v_hat = (Sigma_v_hat + Sigma_v_hat.T) / 2
@@ -361,7 +378,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         delta_Sigma_w = np.linalg.norm(Sigma_w_hat - Sigma_w_prev, 'fro')
         delta_mu_v = np.linalg.norm(mu_v_hat - mu_v_prev)
         delta_Sigma_v = np.linalg.norm(Sigma_v_hat - Sigma_v_prev, 'fro')
-        
+
         print(f"Change in mu_w: {delta_mu_w}")
         print(f"Change in Sigma_w: {delta_Sigma_w}")
         print(f"Change in mu_v: {delta_mu_v}")
@@ -381,7 +398,10 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     M_hat = Sigma_v_hat
     error_M = np.linalg.norm(M_hat - M, 'fro')
     
-    
+    print("\n mu_w: ", mu_w, "mu_w_hat: ", mu_w_hat)
+    print("\n Sigma_w: ", Sigma_w, "Sigma_w_hat: ", Sigma_w_hat)
+    print("\n mu_v: ", mu_v, "mu_v_hat: ", mu_v_hat)
+    print("\n Sigma_v: ", M, "Sigma_v_hat: ", M_hat)
     
     print("\nError Norm for mu_w (||mu_w_hat - mu_w||):", error_mu_w)
 
@@ -391,12 +411,13 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
 
     print("Error Norm for Sigma_v (Frobenius norm):", error_M)
     
-    print("\n mu_w: ", mu_w, "mu_w_hat: ", mu_w_hat)
-    print("\n Sigma_w: ", Sigma_w, "Sigma_w_hat: ", Sigma_w_hat)
-    print("\n mu_v: ", mu_v, "mu_v_hat: ", mu_v_hat)
-    print("\n Sigma_v: ", M, "Sigma_v_hat: ", M_hat)
+    # print("\n mu_w: ", mu_w, "mu_w_hat: ", mu_w_hat)
+    # print("\n Sigma_w: ", Sigma_w, "Sigma_w_hat: ", Sigma_w_hat)
+    # print("\n mu_v: ", mu_v, "mu_v_hat: ", mu_v_hat)
+    # print("\n Sigma_v: ", M, "Sigma_v_hat: ", M_hat)
     
-        
+    
+    #exit()
     # ----- Construct Batch matrix for DRLQC-------------------
     W_hat = np.zeros((nx, nx, T+1))
     V_hat = np.zeros((ny, ny, T+1))
@@ -478,7 +499,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
 
             print("WDRC_lambda[{}][{}] :{} ".format(idx_w, idx_v, wdrc.lambda_)  )
             print('---------------------')
-            
+            np.random.seed(seed) # fix Random seed!
             #----------------------------
             print("Running DRCE Forward step ...")
             for i in range(num_sim):
@@ -498,7 +519,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             output_J_DRCE_std.append(J_DRCE_std[0])
             print(" Average cost (DRCE) : ", J_DRCE_mean[0])
             print(" std (DRCE) : ", J_DRCE_std[0])
-            
+            np.random.seed(seed) # fix Random seed!
             #----------------------------
             print("Running DRLQC Forward step ...")
             for i in range(num_sim):
@@ -620,20 +641,20 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
                 DRCE_lambda[idx_w][idx_v] = load_pickle_data(drce_lambda_filename)
                 
     if use_lambda:
-        path = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/io/".format(dist, noise_dist)
+        path = "./results/{}_{}/finite/multiple/DRLQC/params_lambda/ioEM/".format(dist, noise_dist)
     else:
-        path = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/io/".format(dist, noise_dist)
+        path = "./results/{}_{}/finite/multiple/DRLQC/params_thetas/ioEM/".format(dist, noise_dist)
         save_data(path + 'nonzero_wdrc_lambda.pkl',WDRC_lambda)
         save_data(path + 'nonzero_drce_lambda.pkl',DRCE_lambda)
         
     
             
     print("Params data generation Completed !")
-    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list plot_params4_usingio.py is as desired")
+    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list plot_params4_usingio_EM.py is as desired")
     if use_lambda:
-        print("Now use : python plot_params4_usingio.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot_params4_usingio_EM.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
     else:
-        print("Now use : python plot_params4_usingio.py --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot_params4_usingio_EM.py --dist "+ dist + " --noise_dist " + noise_dist)
     
             
 

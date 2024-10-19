@@ -13,6 +13,112 @@ import matplotlib.ticker as ticker
 from matplotlib import cm
 from scipy.interpolate import interp1d
 
+import matplotlib.pyplot as plt
+import numpy as np
+
+def summarize_box(out_lq_list, out_wdrc_list, out_drce_list, out_drlqc_list, dist, noise_dist, path, num, plot_results=True):
+    # Collecting data for each method...
+    def collect_data(out_list):
+        x_list, J_list, y_list, u_list, time_list = [], [], [], [], []
+        for out in out_list:
+            x_list.append(out['state_traj'])
+            J_list.append(out['cost'])
+            y_list.append(out['output_traj'])
+            u_list.append(out['control_traj'])
+            time_list.append(out['comp_time'])
+        return np.array(x_list), np.array(J_list), np.array(y_list), np.array(u_list), np.array(time_list)
+    
+    x_lqr_list, J_lqr_list, y_lqr_list, u_lqr_list, time_lqr_list = collect_data(out_lq_list)
+    x_wdrc_list, J_wdrc_list, y_wdrc_list, u_wdrc_list, time_wdrc_list = collect_data(out_wdrc_list)
+    x_drce_list, J_drce_list, y_drce_list, u_drce_list, time_drce_list = collect_data(out_drce_list)
+    x_drlqc_list, J_drlqc_list, y_drlqc_list, u_drlqc_list, time_drlqc_list = collect_data(out_drlqc_list)
+    
+    # Predefine time steps, control inputs, outputs, and states
+    T = u_drce_list.shape[1] if u_drce_list.size else 0
+    nu = u_drce_list.shape[2] if u_drce_list.size else 0
+    ny = y_drce_list.shape[2] if y_drce_list.size else 0
+    nx = x_drce_list.shape[2] if x_drce_list.size else 0
+
+    if plot_results:
+        # Function to plot box plots for each method separately
+        def plot_separate(data, label, ylabel, title, file_suffix, color):
+            fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
+
+            # Plot box plots for each time step
+            for t in range(T):
+                box_data = data[:, t, 0]  # Extract data at time step t for all simulations
+                ax.boxplot(box_data, positions=[t], widths=0.6, patch_artist=True,
+                           boxprops=dict(facecolor=color, color=color),
+                           medianprops=dict(color='black'),
+                           whiskerprops=dict(color=color),
+                           capprops=dict(color=color))
+
+            ax.set_xticks(np.arange(T))
+            ax.set_xticklabels([f't={t}' for t in range(T)], fontsize=10)
+            ax.set_xlabel('Time Step', fontsize=14)
+            ax.set_ylabel(ylabel, fontsize=14)
+            ax.set_title(title, fontsize=16)
+            ax.grid(True)
+            ax.legend([label], loc='upper right', fontsize=12)
+
+            plt.savefig(path + f'{file_suffix}_{num}_{dist}_{noise_dist}.pdf', dpi=300, bbox_inches="tight")
+            plt.close(fig)
+
+        # Plot for States
+        for i in range(nx):
+            plot_separate(x_lqr_list, 'LQG', f'State {i+1}', f'LQG State {i+1} Over Time', f'lqg_state_{i+1}', 'tab:red')
+            plot_separate(x_wdrc_list, 'WDRC', f'State {i+1}', f'WDRC State {i+1} Over Time', f'wdrc_state_{i+1}', 'tab:blue')
+            plot_separate(x_drce_list, 'WDR-CE', f'State {i+1}', f'WDR-CE State {i+1} Over Time', f'wdrc_state_{i+1}', 'tab:green')
+            plot_separate(x_drlqc_list, 'DRLQC', f'State {i+1}', f'DRLQC State {i+1} Over Time', f'drlqc_state_{i+1}', 'tab:purple')
+
+        # Plot for Controls
+        for i in range(nu):
+            plot_separate(u_lqr_list, 'LQG', f'Control {i+1}', f'LQG Control {i+1} Over Time', f'lqg_control_{i+1}', 'tab:red')
+            plot_separate(u_wdrc_list, 'WDRC', f'Control {i+1}', f'WDRC Control {i+1} Over Time', f'wdrc_control_{i+1}', 'tab:blue')
+            plot_separate(u_drce_list, 'WDR-CE', f'Control {i+1}', f'WDR-CE Control {i+1} Over Time', f'wdrc_control_{i+1}', 'tab:green')
+            plot_separate(u_drlqc_list, 'DRLQC', f'Control {i+1}', f'DRLQC Control {i+1} Over Time', f'drlqc_control_{i+1}', 'tab:purple')
+
+        # Plot for Outputs
+        for i in range(ny):
+            plot_separate(y_lqr_list, 'LQG', f'Output {i+1}', f'LQG Output {i+1} Over Time', f'lqg_output_{i+1}', 'tab:red')
+            plot_separate(y_wdrc_list, 'WDRC', f'Output {i+1}', f'WDRC Output {i+1} Over Time', f'wdrc_output_{i+1}', 'tab:blue')
+            plot_separate(y_drce_list, 'WDR-CE', f'Output {i+1}', f'WDR-CE Output {i+1} Over Time', f'wdrc_output_{i+1}', 'tab:green')
+            plot_separate(y_drlqc_list, 'DRLQC', f'Output {i+1}', f'DRLQC Output {i+1} Over Time', f'drlqc_output_{i+1}', 'tab:purple')
+
+        # Histogram for Cost
+        fig, ax = plt.subplots(figsize=(8, 6), dpi=300)
+        all_costs = [J_lqr_list, J_wdrc_list, J_drce_list, J_drlqc_list]
+        colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:purple']
+        labels = ['LQG', 'WDRC', 'WDR-CE', 'DRLQC']
+
+        max_bin = max(np.max(cost[:, 0]) for cost in all_costs if cost.size)
+        min_bin = min(np.min(cost[:, 0]) for cost in all_costs if cost.size)
+
+        for cost, color, label in zip(all_costs, colors, labels):
+            if cost.size:
+                ax.hist(cost[:, 0], bins=50, range=(min_bin, max_bin), color=color, label=label, alpha=0.5, linewidth=0.5, edgecolor=color)
+
+                # Plot mean line
+                ax.axvline(cost[:, 0].mean(), color=color, linestyle='dashed', linewidth=1.5)
+
+        plt.xlabel(r'Total Cost', fontsize=16)
+        plt.ylabel(r'Frequency', fontsize=16)
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        ax.grid()
+        ax.legend(fontsize=14)
+        plt.savefig(path + f'J_hist_{num}_{dist}_{noise_dist}.pdf', dpi=300, bbox_inches="tight")
+        plt.close(fig)
+
+    # Print Summary
+    print('cost_lqr: {} ({})'.format(J_lqr_list.mean(), J_lqr_list.std()), 'cost_WDRC: {} ({})'.format(J_wdrc_list.mean(), J_wdrc_list.std()), 
+          'cost_wdrce: {} ({})'.format(J_drce_list.mean(), J_drce_list.std()), 'cost_wdrlqc: {} ({})'.format(J_drlqc_list.mean(), J_drlqc_list.std()))
+    print('time_lqr: {} ({})'.format(time_lqr_list.mean(), time_lqr_list.std()), 'time_WDRC: {} ({})'.format(time_wdrc_list.mean(), time_wdrc_list.std()),
+          'time_wdrce: {} ({})'.format(time_drce_list.mean(), time_drce_list.std()), 'time_wdrlqc: {} ({})'.format(time_drlqc_list.mean(), time_drlqc_list.std()))
+
+
+
+
 def summarize(out_lq_list, out_wdrc_list, out_drce_list, out_drlqc_list, dist, noise_dist, path, num,  plot_results=True):
     x_lqr_list, J_lqr_list, y_lqr_list, u_lqr_list = [], [], [], []
     x_wdrc_list, J_wdrc_list, y_wdrc_list, u_wdrc_list = [], [], [], [] # original wdrc with ordinary Kalman Filter
@@ -342,6 +448,7 @@ if __name__ == "__main__":
     for filename in os.listdir(path):
         match = re.search(pattern_drce, filename)
         if match:
+            print("check")
             if args.use_lambda:
                 lambda_value = (match.group(1))  # Extract lambda and convert to float
                 theta_v_value = convert_to_float(match.group(2))  # Extract theta_v value and convert to float

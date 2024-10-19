@@ -84,7 +84,8 @@ def kalman_filter(A, B, C, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_
     P_hat = np.zeros((T+1, nx, nx))  # Filtered covariance estimates
     x_hat_pred = np.zeros((T+1, nx, 1))  # Predicted state estimates
     P_hat_pred = np.zeros((T+1, nx, nx))  # Predicted covariance estimates
-
+    
+    K = np.zeros((T+1, nx, ny))
     # Set initial state estimates
     x_hat[0] = mu_x0_hat
     P_hat[0] = Sigma_x0_hat
@@ -101,7 +102,8 @@ def kalman_filter(A, B, C, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_
 
 
         # 2. Update step
-        K_t = np.linalg.solve(C @ P_hat_pred[t] @ C.T + Sigma_v_hat + reg_eps*np.eye(ny), P_hat_pred[t] @ C.T)  # Kalman gain
+        K_t = P_hat_pred[t] @ C.T @ np.linalg.inv(C @ P_hat_pred[t] @ C.T + Sigma_v_hat + reg_eps*np.eye(ny))  # Kalman gain
+        #K[t] = K_t # STORE
         x_hat[t] = x_hat_pred[t] + K_t @ (y[t-1] - C @ x_hat_pred[t] - mu_v_hat)
         P_hat[t] = (np.eye(nx) - K_t @ C) @ P_hat_pred[t]
         
@@ -142,9 +144,11 @@ def kalman_smoother(x_hat, P_hat, x_hat_pred, P_hat_pred, A, B, C, mu_x0_hat, Si
             P_tilde[t] += (-np.min(np.linalg.eigvals(P_tilde[t])) + reg_eps)*np.eye(nx)
 
     V_tilde[T-1] = (np.eye(nx) - K @ C ) @ A @ P_tilde[T-1] #V_{T,T-1}
-    for t in range(T-2, 1, -1):
+    #V_tilde[T-1] = (np.eye(nx) - K[T] @ C) @ A @ P_tilde[T-1]
+    for t in range(T-2, -1, -1):
         # Calculate the Lag-1 autocovariance of the smoothed state
         V_tilde[t] = P_tilde[t+1] @ J[t].T + J[t+1] @ (V_tilde[t+1] - A @ P_tilde[t+1]) @ J[t].T #V_{t+1,t}
+        #V_tilde[t] = P_hat[t] @ J[t].T + J[t+1] @ (V_tilde[t+1] - A @ P_tilde[t+1]) @ J[t].T
 
     return x_tilde, P_tilde, V_tilde
 
@@ -157,7 +161,7 @@ def log_likelihood(y_all, A, C, x_tilde, P_tilde, V_tilde, mu_x0_hat, Sigma_x0_h
     Sigma_w_hat_inv = np.linalg.inv(Sigma_w_hat + reg_eps*np.eye(nx))
     Sigma_v_hat_inv = np.linalg.inv(Sigma_v_hat + reg_eps*np.eye(ny))
     Sigma_x0_hat_inv = np.linalg.inv(Sigma_x0_hat + reg_eps*np.eye(nx))
-    c = - 0.5*(T*(nx + ny) + nx)*np.log(2*np.pi) - T/2*np.log(np.linalg.det(Sigma_v_hat) + reg_eps) - T/2*np.log(np.linalg.det(Sigma_w_hat) + reg_eps) - 0.5*np.log(np.linalg.det(Sigma_x0_hat) + reg_eps) - 0.5*np.trace(Sigma_x0_hat_inv @ P_tilde[0]) - 0.5*(x_tilde[0] - mu_x0_hat).T @ Sigma_x0_hat_inv @ (x_tilde[0] - mu_x0_hat)
+    c = - 0.5*(T*(nx + ny) + ny)*np.log(2*np.pi) - T/2*np.log(np.linalg.det(Sigma_v_hat) + reg_eps) - T/2*np.log(np.linalg.det(Sigma_w_hat) + reg_eps) - 0.5*np.log(np.linalg.det(Sigma_x0_hat) + reg_eps) - 0.5*np.trace(Sigma_x0_hat_inv @ P_tilde[0]) - 0.5*(x_tilde[0] - mu_x0_hat).T @ Sigma_x0_hat_inv @ (x_tilde[0] - mu_x0_hat)
 
     for t in range(T):
         c += -0.5*( (y_all[t] - C @ x_tilde[t+1] - mu_v_hat).T @ Sigma_v_hat_inv @ (y_all[t] - C @ x_tilde[t+1] - mu_v_hat)  \
@@ -171,9 +175,10 @@ def log_likelihood(y_all, A, C, x_tilde, P_tilde, V_tilde, mu_x0_hat, Sigma_x0_h
     
 def log_lh_max(x_tilde, P_tilde, V_tilde, A, C, y_all):
 
+
+
     nx = A.shape[0]  # State dimension
     ny = C.shape[0]  # Measurement dimension
-    #print(x_tilde.shape[0])
     T = x_tilde.shape[0]-1
     
     mu_x0_hat_new = x_tilde[0] 
@@ -192,13 +197,25 @@ def log_lh_max(x_tilde, P_tilde, V_tilde, A, C, y_all):
     mu_v_hat_new = 1/T*mu_v_hat_new
     
     for t in range(T):
-        #print(x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat_new, y_all[t] - C @ x_tilde[t+1] - mu_v_hat_new)
-        Sigma_w_hat_new += (x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat_new) @ (x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat_new).T + \
-                           A @ P_tilde[t] @ A.T + P_tilde[t+1] - 2 * A @ V_tilde[t].T
-        Sigma_v_hat_new += (y_all[t] - C @ x_tilde[t+1] - mu_v_hat_new) @ (y_all[t] - C @ x_tilde[t+1] - mu_v_hat_new).T + C @ P_tilde[t+1] @ C.T
+        # Process noise covariance update
+        delta_w = x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat_new
+        Sigma_w_hat_new += (delta_w @ delta_w.T +
+                            P_tilde[t+1] +
+                            A @ P_tilde[t] @ A.T -
+                            A @ V_tilde[t].T -
+                            V_tilde[t] @ A.T)
+
+        # Measurement noise covariance update
+        delta_v = y_all[t] - C @ x_tilde[t+1] - mu_v_hat_new
+        Sigma_v_hat_new += (delta_v @ delta_v.T +
+                            C @ P_tilde[t+1] @ C.T)
+        # Sigma_w_hat_new += (x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat_new) @ (x_tilde[t+1] - A @ x_tilde[t] - mu_w_hat_new).T + \
+        #                    A @ P_tilde[t] @ A.T + P_tilde[t+1] - 2 * V_tilde[t] @ A.T
+        # Sigma_v_hat_new += (y_all[t] - C @ x_tilde[t+1] - mu_v_hat_new) @ (y_all[t] - C @ x_tilde[t+1] - mu_v_hat_new).T - C @ P_tilde[t+1] @ C.T
     
-    Sigma_w_hat_new = 1/T*Sigma_w_hat_new + reg_eps * np.eye(nx)
-    Sigma_v_hat_new = 1/T*Sigma_v_hat_new + reg_eps * np.eye(ny)
+    
+    Sigma_w_hat_new = (1/T)*Sigma_w_hat_new + reg_eps * np.eye(nx)
+    Sigma_v_hat_new = (1/T)*Sigma_v_hat_new + reg_eps * np.eye(ny)
         
         
     return mu_x0_hat_new, mu_w_hat_new, mu_v_hat_new, Sigma_x0_hat_new, Sigma_w_hat_new, Sigma_v_hat_new
@@ -242,7 +259,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 3.0*np.eye(ny) #observation noise covariance
+        M = 1.0*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -1.5*np.ones(ny)
@@ -285,7 +302,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     for i in range(max_iter):
         print(f'\n--------Iteration {i}----------')
         #---------E-Step------------
-        x_hat[i], P_hat[i], x_hat_pred[i], P_hat_pred[i], K = kalman_filter(A, B, C, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, y_all, T)   
+        x_hat[i], P_hat[i], x_hat_pred[i], P_hat_pred[i], K = kalman_filter(A, B, C, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, y_all, T)
         x_tilde[i], P_tilde[i], V_tilde[i] = kalman_smoother(x_hat[i], P_hat[i], x_hat_pred[i], P_hat_pred[i], A, B, C, mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, K)
     
         log_lh[i] = log_likelihood(y_all, A, C, x_tilde[i], P_tilde[i], V_tilde[i], mu_x0_hat, Sigma_x0_hat, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat)

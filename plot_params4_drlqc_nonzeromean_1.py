@@ -174,8 +174,8 @@ if __name__ == "__main__":
         lambda_list = [12, 15, 20, 25, 30, 35, 40, 45, 50] # disturbance distribution penalty parameter
         theta_v_list = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
         theta_w_list = [0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
-        theta_v_list = [0.1, 0.5, 0.1] # radius of noise ambiguity set
-        theta_w_list = [0.01, 0.05, 0.1] # radius of noise ambiguity set
+        theta_v_list = [0.01, 0.05] # radius of noise ambiguity set
+        theta_w_list = [0.01, 0.05] # radius of noise ambiguity set
     else:
         lambda_list = [15, 20, 25, 30, 35, 40, 45, 50] # disturbance distribution penalty parameter
         theta_v_list = [0.2, 0.5, 1.0] # radius of noise ambiguity set
@@ -304,6 +304,7 @@ if __name__ == "__main__":
                     
     print(drlqc_theta_w_values)
     print(drce_theta_w_values)
+    print("drce cost values ",drce_cost_values)
     print(wdrc_theta_w_values)
     print(lqg_theta_w_values)
     # Convert lists to numpy arrays

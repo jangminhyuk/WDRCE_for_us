@@ -18,7 +18,7 @@ def summarize_theta_w(J_DRCE_mean_all_samp, J_DRCE_std_all_samp, DRCE_prob_all_s
     #plt.xscale('log')
     #plt.yscale('log')
     plt.xlabel(r'$\theta$', fontsize=16)
-    plt.ylabel(r'Out-Of-Sample Performance', fontsize=16)
+    plt.ylabel(r'Out-Of-Sample Cost', fontsize=16)
     plt.legend(fontsize=16)
     plt.grid()
     plt.xlim([theta_list[0], theta_list[-1]])
@@ -50,8 +50,8 @@ if __name__ == "__main__":
     parser.add_argument('--noise_dist', required=False, default="normal", type=str) #noise distribution (normal or uniform or quadratic)
     args = parser.parse_args()
     
-    theta_list = [0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0] # radius of noise ambiguity set
-    
+    #theta_list = [0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 6.0, 8.0, 10.0] # radius of noise ambiguity set
+    theta_list = [0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
     num_noise_list = [10, 15, 20] #
     
     noisedist = [args.noise_dist]

@@ -167,19 +167,21 @@ if __name__ == "__main__":
     lqg_theta_v_values = []
     lqg_cost_values = []
     
-    drlqc_optimal_theta_w, drlqc_optimal_theta_v, drlqc_optimal_cost = 0, 0, 99999999
-    drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost = 0, 0, 99999999
-    wdrc_optimal_theta_w, wdrc_optimal_cost = 0, 99999999
+    drlqc_optimal_theta_w, drlqc_optimal_theta_v, drlqc_optimal_cost = 0, 0, np.inf
+    drce_optimal_theta_w, drce_optimal_theta_v, drce_optimal_cost = 0, 0, np.inf
+    wdrc_optimal_theta_w, wdrc_optimal_cost = 0, np.inf
     # TODO : Modify the theta_v_list and lambda_list below to match your experiments!!! 
     
     if args.dist=='normal':
         lambda_list = [12, 15, 20, 25, 30, 35, 40, 45, 50] # disturbance distribution penalty parameter
-        theta_v_list = [ 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
-        theta_w_list = [ 0.1, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        theta_v_list = [ 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
+        theta_w_list = [ 0.1, 1.0, 2.0, 3.0, 4.0, 5.0]
+        theta_v_list = [ 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+        theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
     else:
         lambda_list = [15, 20, 25, 30, 35, 40, 45, 50] # disturbance distribution penalty parameter
-        theta_v_list = [1.0, 2.0, 3.0]
-        theta_w_list = [2.0, 3.0]
+        theta_v_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        theta_w_list = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
         
     # Regular expression pattern to extract numbers from file names
     

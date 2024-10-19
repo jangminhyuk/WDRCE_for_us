@@ -11,7 +11,7 @@ from controllers.WDRC import WDRC
 from controllers.DRCE import DRCE
 from controllers.DRLQC import DRLQC
 from joblib import Parallel, delayed
-
+import control
 import os
 import pickle
 
@@ -118,16 +118,16 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     
     
     if dist=='normal':
-        theta_v_list = [0.1, 0.5, 0.1] # radius of noise ambiguity set
-        theta_w_list = [0.01, 0.05, 0.1] # radius of noise ambiguity set
+        theta_v_list = [0.5] # radius of noise ambiguity set
+        theta_w_list = [0.5] # radius of noise ambiguity set
     else:
         theta_v_list = [1.0] # radius of noise ambiguity set
         theta_w_list = [0.0001] # radius of noise ambiguity set
         #theta_w_list = [0.1]
     # WIth DRLQC implemented, this code do not support multiple lambda_list. 
-    lambda_list = [5000] # disturbance distribution penalty parameter 
-    num_x0_samples = 5 #  N_x0 
-    theta_x0 = 0.01 # radius of initial state ambiguity set
+    lambda_list = [2000] # disturbance distribution penalty parameter 
+    num_x0_samples = 10 #  N_x0 
+    theta_x0 = 0.1 # radius of initial state ambiguity set
     
     # If using use_lambda_option, you are not allowed to use multiple lambda_list in this code. (Because we include DRLQC, which also have \theta_w parameter.)
     use_lambda = False # If use_lambda=True, we will use lambda_list. If use_lambda=False, we will use theta_w_list
@@ -140,27 +140,134 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     output_J_LQG_mean, output_J_WDRC_mean, output_J_DRCE_mean, output_J_DRLQC_mean =[], [], [], []
     output_J_LQG_std, output_J_WDRC_std, output_J_DRCE_std, output_J_DRLQC_std=[], [], [], []
     #-------Initialization-------
-    nx = 5 #state dimension
-    nu = 3 #control input dimension
-    ny = 3 #output dimension
-    temp = np.ones((nx, nx))
-    A=np.array([[0,0,1.132,0,-1],
-    [0,-0.0538,-0.1712,0,0.0705],
-    [0,0,0,1,0],
-    [0,0.0485,0,-0.8556,-1.013],
-    [0,-0.2909,0,1.0532,-0.6859]])
+    # nx = 5 #state dimension
+    # nu = 3 #control input dimension
+    # ny = 3 #output dimension
+    # temp = np.ones((nx, nx))
+    # A=np.array([[0,0,1.132,0,-1],
+    # [0,-0.0538,-0.1712,0,0.0705],
+    # [0,0,0,1,0],
+    # [0,0.0485,0,-0.8556,-1.013],
+    # [0,-0.2909,0,1.0532,-0.6859]])
 
-    B=np.array([[0,0,0],
-    [-0.12,1,0],
-    [0,0,0],
-    [4.419,0,-1.665],
-    [1.575,0,-0.0732]])
-    C=np.array([[1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0]])
-    Q=((1/np.sqrt(2))*C[1:2,:]).T @ ((1/np.sqrt(2))*C[1:2,:])
-    R=0.5*np.eye(nu)
+    # B=np.array([[0,0,0],
+    # [-0.12,1,0],
+    # [0,0,0],
+    # [4.419,0,-1.665],
+    # [1.575,0,-0.0732]])
+    # C=np.array([[1,0,0,0,0],[0,1,0,0,0],[0,0,1,0,0]])
+    # Q=((1/np.sqrt(2))*C[1:2,:]).T @ ((1/np.sqrt(2))*C[1:2,:])
+    # R=0.5*np.eye(nu)
 
-    Qf = 10*Q
+    # Qf = 5*Q
+    #(HE3)
+    nx = 8
+    nu = 4
+    ny = 6
+    A = np.array([[-0.0046, 0.038, 0.3259, -0.0045, -0.402, -0.073, -9.81, 0],
+              [-0.1978, -0.5667, 0.357, -0.0378, -0.2149, 0.5683, 0, 0],
+              [0.0039, -0.0029, -0.2947, 0.007, 0.2266, 0.0148, 0, 0],
+              [0.0133, -0.0014, -0.4076, -0.0654, -0.4093, 0.2674, 0, 9.81],
+              [0.0127, -0.01, -0.8152, -0.0397, -0.821, 0.1442, 0, 0],
+              [-0.0285, -0.0232, 0.1064, 0.0709, -0.2786, -0.7396, 0, 0],
+              [0, 0, 1, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 1, 0, 0, 0]])
 
+    B = np.array([[0.0676, 0.1221, -0.0001, -0.0016],
+                [-1.1151, 0.1055, 0.0039, 0.0035],
+                [0.0062, -0.0682, 0.001, -0.0035],
+                [-0.017, 0.0049, 0.1067, 0.1692],
+                [-0.0129, 0.0106, 0.2227, 0.143],
+                [0.139, 0.0059, 0.0326, -0.407],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0]])
+
+    C = np.array([[0, 1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 1, 0, 0],
+                [0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0]])
+    R = np.eye(nu)
+    Q = Qf = np.eye(nx)
+    #WEC1
+    # nx = 10
+    # nu = 3
+    # ny= 4
+    # A = np.zeros((10, 10))
+    # A[0, 0] = -5.0e0
+    # A[1, 2] = 1.0e0
+    # A[2, 0:4] = [-5.5005e0, -1.4791e3, -3.2812e0, -1.7889e-2]
+    # A[2, 6:10] = [1.6968e2, 3.6137e1, 3.6137e1, 1.4483e2]
+    # A[3, 1:3] = [1.4164e3, 3.1250e0]
+    # A[3, 6:10] = [-1.6968e2, -3.6137e1, -3.6137e1, -1.4483e2]
+    # A[4, 3:5] = [9.5493e-2, -1.0e1]
+    # A[5, 5] = -1.0e1
+    # A[6, 3] = 7.8416e0
+    # A[6, 5:10] = [1.1552e-1, -1.2571e3, 1.0151e3, 1.0111e3, 4.9909e2]
+    # A[7, 3] = 4.6042e0
+    # A[7, 5:10] = [2.0960e0, -6.9313e2, 5.5933e2, 6.3131e2, 3.0618e2]
+    # A[8, 3] = 5.7968e0
+    # A[8, 5:10] = [-1.8671e0, -9.7681e2, 7.8851e2, 7.0825e2, 3.5508e2]
+    # A[9, 3] = -2.8663e0
+    # A[9, 5:10] = [-4.7856e-2, 4.1358e2, -3.4335e2, -3.4163e2, -2.1245e2]
+
+    # B = np.zeros((10, 3))
+    # B[0, 0] = 5.0e0
+    # B[5, 1] = 1.0e1
+    # B[6:10, 2] = [-3.0565e2, -1.6627e2, -2.3988e2, 9.6020e1]
+
+    # C = np.zeros((4, 10))
+    # C[0, 4] = 1
+    # C[1, 6] = 1
+    # C[2, 2] = 4.5455e-2
+    # C[2, 3] = C[2, 2]
+    # C[3, 1] = 1.2249e1
+    # C[3, 2] = 2.7025e-2
+    
+    # R = np.eye(nu)
+    # Q = Qf = np.eye(nx)
+    
+        #DIS3
+    # nx = 6 #state dimension
+    # nu = 4 #control input dimension
+    # ny = 4 #output dimension
+    # A=np.array([[-1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    #             [-1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+    #             [1.0, -2.0, -1.0, -1.0, 1.0, 1.0],
+    #             [0.0, 0.0, 0.0, -1.0, 0.0, 0.0],
+    #             [-8.0, 1.0, -1.0, -1.0, -2.0, 0.0],
+    #             [4.0, -0.5, 0.5, 0.0, 0.0, -4.0]])
+    # B=np.array([[0, 1, 0, 0],
+    #             [1, 0, 0, 0],
+    #             [1, 1, 0, 0],
+    #             [0, 0, 0, -1],
+    #             [0, 0, 1, 0],
+    #             [0, 0, 0, 1]])
+    # C=np.array([[0, 1, 0, 0, 0, 0],
+    #            [0, 0, 1, 0, 0, 0], 
+    #            [0, 0, 0, 0, 1, 0], 
+    #            [0, 0, 0, 0, 0, 1]])
+    # R = np.eye(nu)
+    # Q = Qf = np.eye(nx)
+    
+    # REA1
+    # nx = 4 #state dimension
+    # nu = 2 #control input dimension
+    # ny = 3 #output dimension
+    # A=np.array([[1.38, -0.2077, 6.715, -5.676],
+    #             [-0.5814, -4.29, 0, 0.675],
+    #             [1.067, 4.273, -6.654, 5.893],
+    #             [0.048, 4.273, 1.343, -2.104]])
+    # B=np.array([[0, 0],
+    #             [5.679, 0],
+    #             [1.136, -3.146],
+    #             [1.136, 0]])
+    # C=np.array([[1, 0, 1, -1],
+    #             [0, 1, 0, 0],
+    #             [0, 0, 1, -1]])
+    # R = np.eye(nu)
+    # Q = Qf = np.eye(nx)
     # nx = 4 #state dimension
     # nu = 2 #control input dimension
     # ny = 2 #output dimension
@@ -188,14 +295,14 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     # [0,0,0,1]
     # ])
     
-    # Check Controllability Matrix
-    #ctrb_matrix = control.ctrb(A, B)
-    #print(np.linalg.matrix_rank(ctrb_matrix))
+    # # Check Controllability Matrix
+    # ctrb_matrix = control.ctrb(A, B)
+    # print(np.linalg.matrix_rank(ctrb_matrix))
 
-    # Check Observability Matrix
-    #obsv_matrix = control.obsv(A, C)
-    #print(np.linalg.matrix_rank(obsv_matrix))
-    #exit()
+    # # Check Observability Matrix
+    # obsv_matrix = control.obsv(A, C)
+    # print(np.linalg.matrix_rank(obsv_matrix))
+    # exit()
 
     # Qf = Q = np.array([
     # [1, 0, 0, 0],
@@ -216,25 +323,27 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 0.01*np.ones((nx, 1))
+        mu_w = 0.05*np.ones((nx, 1))
         Sigma_w= 0.1*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
         x0_mean = 0.0*np.ones((nx,1))
-        x0_mean[-1] = 0.2
+        x0_mean[-1] = 1.0
         x0_cov = 0.001*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
-        w_max = 0.01*np.ones(nx)
-        w_min = -0.01*np.ones(nx)
+        w_max = 0.05*np.ones(nx)
+        w_min = -0.05*np.ones(nx)
         mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
         Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
         #initial state distribution parameters
         x0_max = 0.05*np.ones(nx)
         x0_min = -0.05*np.ones(nx)
-        x0_max[-1] = 1.05
-        x0_min[-1] = 0.95
+        x0_max[-1] = 0.55
+        x0_min[-1] = 0.45
+        x0_max[-1] = 0.55
+        x0_min[-1] = 0.45
         x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
         x0_cov = 3.0/20.0 *np.diag((x0_max - x0_min)**2)
         
@@ -242,11 +351,11 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 0.5*np.eye(ny) #observation noise covariance
-        mu_v = 0.1*np.ones((ny, 1))
+        M = 0.1*np.eye(ny) #observation noise covariance
+        mu_v = 0.01*np.ones((ny, 1))
     elif noise_dist =="quadratic":
-        v_min = -0.5*np.ones((ny, 1))
-        v_max = 0.5*np.ones((ny, 1))
+        v_min = -0.1*np.ones(ny)
+        v_max = 0.1*np.ones(ny)
         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
 
@@ -289,7 +398,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         os.makedirs(temp_results_path)
     def perform_simulation(lambda_, noise_dist, dist_parameter, theta, idx_w, idx_v):
         for num_noise in num_noise_list:
-            
+            np.random.seed(seed) # fix Random seed!
             theta_w = 0.001 # Will be used only when if use_lambda = True, this value will be in DRLQC method. (Since WDRC and DRCE will use lambdas)
             print("--------------------------------------------")
             print("number of noise sample : ", num_noise)
@@ -342,7 +451,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             WDRC_lambda[idx_w][idx_v] = wdrc.lambda_
             DRCE_lambda[idx_w][idx_v] = drce.lambda_
             print('---------------------')
-            
+            np.random.seed(seed) # fix Random seed!
             #----------------------------
             print("Running DRCE Forward step ...")
             for i in range(num_sim):
@@ -362,7 +471,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
             output_J_DRCE_std.append(J_DRCE_std[0])
             print(" Average cost (DRCE) : ", J_DRCE_mean[0])
             print(" std (DRCE) : ", J_DRCE_std[0])
-            
+            np.random.seed(seed) # fix Random seed!
             #----------------------------
             print("Running DRLQC Forward step ...")
             for i in range(num_sim):
@@ -502,8 +611,8 @@ if __name__ == "__main__":
     parser.add_argument('--dist', required=False, default="quadratic", type=str) #disurbance distribution (normal or quadratic)
     parser.add_argument('--noise_dist', required=False, default="quadratic", type=str) #noise distribution (normal or quadratic)
     parser.add_argument('--num_sim', required=False, default=500, type=int) #number of simulation runs
-    parser.add_argument('--num_samples', required=False, default=5, type=int) #number of disturbance samples
-    parser.add_argument('--num_noise_samples', required=False, default=5, type=int) #number of noise samples
+    parser.add_argument('--num_samples', required=False, default=10, type=int) #number of disturbance samples
+    parser.add_argument('--num_noise_samples', required=False, default=10, type=int) #number of noise samples
     parser.add_argument('--horizon', required=False, default=20, type=int) #horizon length
     
     args = parser.parse_args()
