@@ -105,44 +105,51 @@ def save_data(path, data):
     output.close()
 # Functions used in the EM algorithm
 
-def kalman_smoother(u, y, A, B, C, mu_w, Sigma_w, mu_v, Sigma_v, x0):
+def kalman_smoother(u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, x0):
+    nx, nu, ny = A.shape[0], B.shape[1], C.shape[0]
     T = u.shape[0]
-    nx = A.shape[0]
-    ny = C.shape[0]
-    
-    # Forward pass (Kalman Filter)
-    x_pred = np.zeros((T + 1, nx, 1))
-    P_pred = np.zeros((T + 1, nx, nx))
-    x_filt = np.zeros((T + 1, nx, 1))
-    P_filt = np.zeros((T + 1, nx, nx))
-    
+
+    # Initialize state and covariance arrays
+    x_filt = np.zeros((T + 1, nx, 1))  # Filtered state estimates
+    P_filt = np.zeros((T + 1, nx, nx))  # Filtered covariances
+    x_pred = np.zeros((T + 1, nx, 1))  # Predicted states
+    P_pred = np.zeros((T + 1, nx, nx))  # Predicted covariances
+
+    # Initialize filtered state and covariance
     x_filt[0] = x0
-    P_filt[0] = np.eye(nx)
-    
+    P_filt[0] = np.eye(nx)  # Initial state covariance
+
+    # Forward Kalman Filter pass (prediction and update steps)
     for t in range(T):
-        # Prediction
-        x_pred[t + 1] = A @ x_filt[t] + B @ u[t] + mu_w
-        P_pred[t + 1] = A @ P_filt[t] @ A.T + Sigma_w
-        
-        # Update
-        y_pred = C @ x_pred[t + 1] + mu_v
-        S = C @ P_pred[t + 1] @ C.T + Sigma_v
-        K = P_pred[t + 1] @ C.T @ np.linalg.inv(S)
-        x_filt[t + 1] = x_pred[t + 1] + K @ (y[t + 1] - y_pred)
-        P_filt[t + 1] = P_pred[t + 1] - K @ C @ P_pred[t + 1]
-    
-    # Backward pass (Kalman Smoother)
-    x_smooth = x_filt.copy()
-    P_smooth = P_filt.copy()
-    P_cross = np.zeros((T, nx, nx))
-    
+        # Prediction step
+        x_pred[t + 1] = A @ x_filt[t] + B @ u[t] + mu_w_hat
+        P_pred[t + 1] = A @ P_filt[t] @ A.T + Sigma_w_hat
+
+        # Update step
+        y_pred = C @ x_pred[t + 1] + mu_v_hat
+        S = C @ P_pred[t + 1] @ C.T + Sigma_v_hat  # Innovation covariance
+        K = P_pred[t + 1] @ C.T @ np.linalg.inv(S)  # Kalman gain
+
+        x_filt[t + 1] = x_pred[t + 1] + K @ (y[t] - y_pred)
+        P_filt[t + 1] = (np.eye(nx) - K @ C) @ P_pred[t + 1]
+
+    # Backward Kalman Smoother pass
+    x_smooth = np.zeros((T + 1, nx, 1))  # Smoothed state estimates
+    P_smooth = np.zeros((T + 1, nx, nx))  # Smoothed covariances
+    P_cross = np.zeros((T, nx, nx))  # Cross-covariances between time steps
+
+    x_smooth[T] = x_filt[T]
+    P_smooth[T] = P_filt[T]
+
     for t in range(T - 1, -1, -1):
-        A_hat = P_filt[t] @ A.T @ np.linalg.inv(P_pred[t + 1])
-        x_smooth[t] = x_filt[t] + A_hat @ (x_smooth[t + 1] - x_pred[t + 1])
-        P_smooth[t] = P_filt[t] + A_hat @ (P_smooth[t + 1] - P_pred[t + 1]) @ A_hat.T
-        P_cross[t] = P_smooth[t + 1] @ A_hat.T
-    
+        J = P_filt[t] @ A.T @ np.linalg.inv(P_pred[t + 1])  # Smoother gain
+        x_smooth[t] = x_filt[t] + J @ (x_smooth[t + 1] - x_pred[t + 1])
+        P_smooth[t] = P_filt[t] + J @ (P_smooth[t + 1] - P_pred[t + 1]) @ J.T
+        P_cross[t] = J @ P_smooth[t + 1]
+
     return x_filt, P_filt, x_smooth, P_smooth, P_cross
+    
+
 def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     
     lambda_ = 10
@@ -210,8 +217,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         #disturbance distribution parameters
         w_max = None
         w_min = None
-        mu_w = 1.0*np.ones((nx, 1))
-        Sigma_w= 0.5*np.eye(nx)
+        mu_w = 0.3*np.ones((nx, 1))
+        Sigma_w= 0.6*np.eye(nx)
         #initial state distribution parameters
         x0_max = None
         x0_min = None
@@ -219,30 +226,37 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         x0_cov = 0.001*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
-        w_max = 0.5*np.ones(nx)
-        w_min = -1.5*np.ones(nx)
+        w_max = 0.3*np.ones(nx)
+        w_min = -0.2*np.ones(nx)
         mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
         Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
         #initial state distribution parameters
-        x0_max = 0.21*np.ones(nx)
-        x0_min = 0.19*np.ones(nx)
+        x0_max = 0.05*np.ones(nx)
+        x0_min = -0.05*np.ones(nx)
+        x0_max[-1] = 1.01
+        x0_min[-1] = 0.99
         x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
         x0_cov = 3.0/20.0 *np.diag((x0_max - x0_min)**2)
-        
+     
+     
+     
+    
+
+   
     #-------Noise distribution ---------#
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 3.0*np.eye(ny) #observation noise covariance
+        M = 3.5*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
-        v_min = -1.5*np.ones(ny)
-        v_max = 3.0*np.ones(ny)
+        v_min = -0.2*np.ones(ny)
+        v_max = 0.6*np.ones(ny)
         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
     
     x0 = x0_mean    
-    N=50
+    N=10
     # -------Estimate the nominal distribution-------
     # Initialize lists to store data for all sequences
     x_list = []
@@ -259,9 +273,13 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         # Set initial state x[0] (known)
         x[0] = x0
 
-        # Generate input-output data over time horizon T
+    # --- Generate N sequences of data ---
+    x_list, y_list, u_list = [], [], []
+    for i in range(N):
+        x, y, u = np.zeros((T + 1, nx, 1)), np.zeros((T + 1, ny, 1)), np.zeros((T, nu, 1))
+        x[0] = x0
+
         for t in range(T):
-            # Sample  w_t
             if dist=="normal":
                 true_w = normal(mu_w, Sigma_w)
             elif dist=="quadratic":
@@ -272,90 +290,73 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
                 true_v = normal(mu_v, M)
             elif noise_dist=="quadratic":
                 true_v = quadratic(v_max, v_min)
-                
-            # Sample control input u_t from zero-mean Gaussian distribution
-            u[t] = np.random.multivariate_normal(np.zeros(nu), np.eye(nu)).reshape(nu, 1)
-            # Update state x_{t+1}
+                        
             x[t + 1] = A @ x[t] + B @ u[t] + true_w
-            # Generate measurement y_{t}
-            y[t] = C @ x[t] + true_v 
-
-        # Generate measurement y[T] at final state x[T]
-        true_v_T = np.random.multivariate_normal(mu_v.flatten(), M).reshape(ny, 1)
-        y[T] = C @ x[T] + true_v_T
-
-        # Append sequence data to lists
+            y[t] = C @ x[t] + true_v
+        
         x_list.append(x)
         y_list.append(y)
         u_list.append(u)
 
-    # --- Estimation Procedure ---
-    # EM Algorithm Implementation with Kalman Smoother
-    max_iterations = 50
-    tolerance = 1e-3
-    #Initial guess
-    mu_w_hat = np.zeros((nx, 1))
-    Sigma_w_hat = np.eye(nx)
-    mu_v_hat = np.zeros((ny, 1))
-    Sigma_v_hat = np.eye(ny)
+    # --- EM Algorithm Implementation with Kalman Smoother ---
+    max_iterations, tolerance = 1000, 1e-6
+    mu_w_hat, Sigma_w_hat = np.zeros((nx, 1)), np.eye(nx)
+    mu_v_hat, Sigma_v_hat = np.zeros((ny, 1)), np.eye(ny)
+    
+    mu_w_hat = np.mean([x_list[i][1:] - A @ x_list[i][:-1] - B @ u_list[i] for i in range(N)], axis=(0, 1))
+    mu_v_hat = np.mean([y_list[i] - C @ x_list[i] for i in range(N)], axis=(0, 1))
+
+
+    alpha = 0.1  # Smoothing parameter for parameter updates
+    lambda_reg_w = 1e-4  # Regularization factor for covariance matrices
+    lambda_reg_v = 1e-4  # Regularization factor for covariance matrices
+    
     for iteration in range(max_iterations):
         print(f"Iteration {iteration + 1}")
         
-        # Store previous estimates
-        mu_w_prev = mu_w_hat.copy()
-        Sigma_w_prev = Sigma_w_hat.copy()
-        mu_v_prev = mu_v_hat.copy()
-        Sigma_v_prev = Sigma_v_hat.copy()
-        
-        # Initialize accumulators
-        sum_E_w = np.zeros((nx, 1))
-        sum_E_ww = np.zeros((nx, nx))
-        sum_E_v = np.zeros((ny, 1))
-        sum_E_vv = np.zeros((ny, ny))
-        total_w_samples = 0
-        total_v_samples = 0
-        
+        mu_w_prev, Sigma_w_prev = mu_w_hat.copy(), Sigma_w_hat.copy()
+        mu_v_prev, Sigma_v_prev = mu_v_hat.copy(), Sigma_v_hat.copy()
+
+        sum_E_w, sum_E_ww = np.zeros((nx, 1)), np.zeros((nx, nx))
+        sum_E_v, sum_E_vv = np.zeros((ny, 1)), np.zeros((ny, ny))
+        total_w_samples, total_v_samples = 0, 0
+
         for i in range(N):
-            u = u_list[i]
-            y = y_list[i]
-            
-            # Run Kalman Smoother
-            x_filt, P_filt, x_smooth, P_smooth, P_cross = kalman_smoother(u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, x0)
-            
-            # M-Step calculations
+            u, y = u_list[i], y_list[i]
+
+            # Run Kalman Smoother for state estimation
+            x_filt, P_filt, x_smooth, P_smooth, P_cross = kalman_smoother(
+                u, y, A, B, C, mu_w_hat, Sigma_w_hat, mu_v_hat, Sigma_v_hat, x0
+            )
+
+            # M-step: Process noise expectations
             T_seq = u.shape[0]
-            
-            # Process noise expectations
             for t in range(T_seq):
                 E_w_t = x_smooth[t + 1] - A @ x_smooth[t] - B @ u[t] - mu_w_hat
                 sum_E_w += E_w_t
                 total_w_samples += 1
-                
-                E_ww_t = P_smooth[t + 1] + x_smooth[t + 1] @ x_smooth[t + 1].T - (A @ P_smooth[t] + x_smooth[t + 1] @ x_smooth[t].T @ A.T + B @ u[t] @ x_smooth[t].T @ A.T + A @ x_smooth[t] @ u[t].T @ B.T + B @ u[t] @ u[t].T @ B.T)
+                E_ww_t = P_smooth[t + 1] + x_smooth[t + 1] @ x_smooth[t + 1].T
                 sum_E_ww += E_ww_t
-                
+            
             # Measurement noise expectations
             for t in range(T_seq + 1):
                 E_v_t = y[t] - C @ x_smooth[t] - mu_v_hat
                 sum_E_v += E_v_t
                 total_v_samples += 1
-                
                 E_vv_t = E_v_t @ E_v_t.T + C @ P_smooth[t] @ C.T
                 sum_E_vv += E_vv_t
         
-        # Update means
-        mu_w_hat = sum_E_w / total_w_samples
-        mu_v_hat = sum_E_v / total_v_samples
+        # Update parameters in M-step with smoothing
+        mu_w_hat = (1 - alpha) * mu_w_hat + alpha * (sum_E_w / total_w_samples)
+        mu_v_hat = (1 - alpha) * mu_v_hat + alpha * (sum_E_v / total_v_samples)      
+        Sigma_w_hat = (1 - alpha) * Sigma_w_hat + alpha * (sum_E_ww / total_w_samples) + lambda_reg_w * np.eye(nx)
+        Sigma_v_hat = (1 - alpha) * Sigma_v_hat + alpha * (sum_E_vv / total_v_samples) + lambda_reg_v * np.eye(ny)
         
-        # Update covariances
-        Sigma_w_hat = sum_E_ww / total_w_samples
-        Sigma_v_hat = sum_E_vv / total_v_samples
-        
-        # Ensure covariance matrices are symmetric
+        # Symmetrize covariances
         Sigma_w_hat = (Sigma_w_hat + Sigma_w_hat.T) / 2
         Sigma_v_hat = (Sigma_v_hat + Sigma_v_hat.T) / 2
         
-        # Check for convergence
+        # Check convergence
         delta_mu_w = np.linalg.norm(mu_w_hat - mu_w_prev)
         delta_Sigma_w = np.linalg.norm(Sigma_w_hat - Sigma_w_prev, 'fro')
         delta_mu_v = np.linalg.norm(mu_v_hat - mu_v_prev)
@@ -365,11 +366,12 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         print(f"Change in Sigma_w: {delta_Sigma_w}")
         print(f"Change in mu_v: {delta_mu_v}")
         print(f"Change in Sigma_v: {delta_Sigma_v}\n")
-        
+
         if (delta_mu_w < tolerance and delta_Sigma_w < tolerance and
             delta_mu_v < tolerance and delta_Sigma_v < tolerance):
             print("Convergence achieved!")
             break
+
     # Compute errors in norms for means
     error_mu_w = np.linalg.norm(mu_w_hat - mu_w)
     error_mu_v = np.linalg.norm(mu_v_hat - mu_v)
@@ -379,6 +381,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     M_hat = Sigma_v_hat
     error_M = np.linalg.norm(M_hat - M, 'fro')
     
+    
+    
     print("\nError Norm for mu_w (||mu_w_hat - mu_w||):", error_mu_w)
 
     print("Error Norm for Sigma_w (Frobenius norm):", error_Sigma_w)
@@ -387,7 +391,12 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
 
     print("Error Norm for Sigma_v (Frobenius norm):", error_M)
     
+    print("\n mu_w: ", mu_w, "mu_w_hat: ", mu_w_hat)
+    print("\n Sigma_w: ", Sigma_w, "Sigma_w_hat: ", Sigma_w_hat)
+    print("\n mu_v: ", mu_v, "mu_v_hat: ", mu_v_hat)
+    print("\n Sigma_v: ", M, "Sigma_v_hat: ", M_hat)
     
+        
     # ----- Construct Batch matrix for DRLQC-------------------
     W_hat = np.zeros((nx, nx, T+1))
     V_hat = np.zeros((ny, ny, T+1))

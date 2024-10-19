@@ -121,7 +121,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         theta_v_list = [0.1, 0.5, 0.1] # radius of noise ambiguity set
         theta_w_list = [0.01, 0.05, 0.1] # radius of noise ambiguity set
     else:
-        theta_v_list = [1] # radius of noise ambiguity set
+        theta_v_list = [1.0] # radius of noise ambiguity set
         theta_w_list = [0.0001] # radius of noise ambiguity set
         #theta_w_list = [0.1]
     # WIth DRLQC implemented, this code do not support multiple lambda_list. 
@@ -226,15 +226,15 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         x0_cov = 0.001*np.eye(nx)
     elif dist == "quadratic":
         #disturbance distribution parameters
-        w_max = 0.01
-        w_min = -0.01
+        w_max = 0.01*np.ones(nx)
+        w_min = -0.01*np.ones(nx)
         mu_w = (0.5*(w_max + w_min))[..., np.newaxis]
         Sigma_w = 3.0/20.0*np.diag((w_max - w_min)**2)
         #initial state distribution parameters
-        x_0 = np.zeros((nx,1))
-        x_0[-1] = 0.1 # roll angle ~6,7 degree 
-        x0_max = 0.01
-        x0_min = -.01
+        x0_max = 0.05*np.ones(nx)
+        x0_min = -0.05*np.ones(nx)
+        x0_max[-1] = 1.05
+        x0_min[-1] = 0.95
         x0_mean = (0.5*(x0_max + x0_min))[..., np.newaxis]
         x0_cov = 3.0/20.0 *np.diag((x0_max - x0_min)**2)
         
@@ -245,8 +245,8 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
         M = 0.5*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
-        v_min = -0.5
-        v_max = 0.5
+        v_min = -0.5*np.ones((ny, 1))
+        v_max = 0.5*np.ones((ny, 1))
         mu_v = (0.5*(v_max + v_min))[..., np.newaxis]
         M = 3.0/20.0 *np.diag((v_max-v_min)**2) #observation noise covariance
 

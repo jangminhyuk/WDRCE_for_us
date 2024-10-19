@@ -268,7 +268,7 @@ if __name__ == "__main__":
                     wdrc_file = open(path + filename, 'rb')
                     wdrc_cost = pickle.load(wdrc_file)
                     if wdrc_cost[0] < wdrc_optimal_cost:
-                        wdrc_optimal_cost = drce_cost[0]
+                        wdrc_optimal_cost = wdrc_cost[0]
                         if args.use_lambda:
                             wdrc_optimal_lambda = lambda_value
                         else:
