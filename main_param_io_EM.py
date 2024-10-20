@@ -249,7 +249,7 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     if noise_dist =="normal":
         v_max = None
         v_min = None
-        M = 3.0*np.eye(ny) #observation noise covariance
+        M = 3.5*np.eye(ny) #observation noise covariance
         mu_v = 0.1*np.ones((ny, 1))
     elif noise_dist =="quadratic":
         v_min = -0.2*np.ones(ny)
