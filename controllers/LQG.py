@@ -149,6 +149,8 @@ class LQG:
         
         offline_end = time.time()
         self.offline_time = offline_end - offline_start # time consumed for offline process
+    
+    
             
     def forward(self):
         #Apply the controller forward in time.
@@ -222,3 +224,87 @@ class LQG:
                 'cost': J,
                 'mse':self.J_mse,
                 'offline_time':self.offline_time}
+        
+    def forward_track(self, desired_trajectory):
+        #Apply the controller forward in time.
+        start = time.time()
+        x = np.zeros((self.T+1, self.nx, 1))
+        y = np.zeros((self.T+1, self.ny, 1))
+        u = np.zeros((self.T, self.nu, 1))
+        error = np.zeros((self.T+1, self.nx, 1)) # Tracking error
+        
+        x_mean = np.zeros((self.T+1, self.nx, 1))
+        J = np.zeros(self.T+1)
+        #---system----
+        if self.dist=="normal":
+            x[0] = self.normal(self.x0_mean, self.x0_cov)
+        elif self.dist=="uniform":
+            x[0] = self.uniform(self.x0_max, self.x0_min)
+        elif self.dist=="quadratic":
+            x[0] = self.quadratic(self.x0_max, self.x0_min)
+        #---noise----
+        if self.noise_dist=="normal":
+            true_v = self.normal(self.mu_v, self.M) #observation noise
+        elif self.noise_dist=="uniform":
+            true_v = self.uniform(self.v_max, self.v_min) #observation noise
+        elif self.noise_dist=="quadratic":
+            true_v = self.quadratic(self.v_max, self.v_min) #observation noise
+            
+        y[0] = self.get_obs(x[0], true_v) #initial observation
+        x_mean[0] = self.kalman_filter(self.v_mean_hat[0] , self.M_hat[0], self.x0_mean_hat, self.x_cov[0], y[0]) #initial state estimation
+        
+        for t in range(self.T):
+            #disturbance sampling
+            if self.dist=="normal":
+                true_w = self.normal(self.mu_w, self.Sigma_w)
+            elif self.dist=="uniform":
+                true_w = self.uniform(self.w_max, self.w_min)
+            elif self.dist=="quadratic":
+                true_w = self.quadratic(self.w_max, self.w_min)
+            #noise sampling
+            if self.noise_dist=="normal":
+                true_v = self.normal(self.mu_v, self.M) #observation noise
+            elif self.noise_dist=="uniform":
+                true_v = self.uniform(self.v_max, self.v_min) #observation noise
+            elif self.noise_dist=="quadratic":
+                true_v = self.quadratic(self.v_max, self.v_min) #observation noise
+                
+            # Get desired trajectory at current time step (desired position and velocity)
+            traj = desired_trajectory[:,t].reshape(-1, 1)
+            #print("traj[t] : ", traj)
+            #print("current[t] : ",x_mean[t])
+            error[t] = x_mean[t] - traj  # Error as a 4D vector
+            
+            
+            #Apply the control input to the system
+            #u[t] = self.K[t] @ x_mean[t] + self.L[t]
+            u[t] = self.K[t] @ error[t] + self.L[t]
+            x[t+1] = self.A @ x[t] + self.B @ u[t] + true_w
+            y[t+1] = self.get_obs(x[t+1], true_v)
+
+            #Update the state estimation (using the nominal mean and covariance)
+            x_mean[t+1] = self.kalman_filter(self.v_mean_hat[t+1], self.M_hat[t+1], x_mean[t], self.x_cov[t+1], y[t+1], self.mu_hat[t], u=u[t])
+       
+       
+        self.J_mse = np.zeros(self.T + 1) # State estimation error MSE
+
+        
+        #Collect Estimation MSE 
+        for t in range(self.T):
+            #print("LQG S[",t,"] : ", np.linalg.norm(self.S[t]))
+            self.J_mse[t] = (x_mean[t]-x[t]).T@(self.S[t])@(x_mean[t]-x[t])
+        
+        #Compute the total cost
+        J[self.T] = error[self.T].T @ self.Qf @ error[self.T]
+        for t in range(self.T-1, -1, -1):
+            J[t] = J[t+1] + error[t].T @ self.Q @ error[t] + u[t].T @ self.R @ u[t]
+        end = time.time()
+        time_ = end-start
+        return {'comp_time': time_,
+                'state_traj': x,
+                'output_traj': y,
+                'control_traj': u,
+                'cost': J,
+                'mse':self.J_mse,
+                'offline_time':self.offline_time,
+                'desired_traj': desired_trajectory}
