@@ -143,14 +143,15 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
     B = C = Q = R = Qf = np.eye(10) 
     #----------------------------
     # change True to False if you don't want to use given lambda
-    use_lambda = False
-    use_optimal_lambda = True
+    use_lambda = True
+    use_optimal_lambda = False
     lambda_ = 20 # will not be used if the parameter "use_lambda = False"
     noisedist = [noise_dist1]
     
     
-    theta_w_list = [0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
-    
+    theta_w_list = [0.05, 0.1, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+    #theta_w_list = [5.0, 6.0, 7.0, 8.0, 9.0]
+    #theta_w_list = [10.0]
     num_noise_list = [10, 15, 20] 
     #theta=theta_w=theta_v=theta_x0 for Out-of-Sample Experiments
     for noise_dist in noisedist:
@@ -314,7 +315,7 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
 
                     
                     # -- Lambda Save -- 
-                    #save_data(path + 'drce_lambda_' + theta_w_ + 'and' + theta_v_+ '.pkl', DRCE_lambda)
+                    save_data(path + 'drce_lambda_' + theta_w_ +'.pkl', DRCE_lambda)
                     #-------------------------------
                     print("num_noise_sample : ", num_noise, " / finished with dist : ", dist, "/ noise_dist : ", noise_dist, "/ seed : ", seed)
                 

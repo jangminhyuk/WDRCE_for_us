@@ -583,11 +583,11 @@ def main(dist, noise_dist, num_sim, num_samples, num_noise_samples, T):
     
             
     print("Params data generation Completed !")
-    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list plot_params4_usingio_real.py is as desired")
+    print("Please make sure your lambda_list(or theta_w_list) and theta_v_list plot_params4_EM.py is as desired")
     if use_lambda:
-        print("Now use : python plot_params4_usingio_real.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot_params4_EM.py --use_lambda --dist "+ dist + " --noise_dist " + noise_dist)
     else:
-        print("Now use : python plot_params4_usingio_real.py --dist "+ dist + " --noise_dist " + noise_dist)
+        print("Now use : python plot_params4_EM.py --dist "+ dist + " --noise_dist " + noise_dist)
     
             
 

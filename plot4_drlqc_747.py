@@ -465,7 +465,6 @@ if __name__ == "__main__":
                 # Store theta_w and theta_v values
                 drce_theta_w_values.append(theta_w_value)
                 drce_theta_v_values.append(theta_v_value)
-            
             drce_file = open(path + filename, 'rb')
             drce_cost = pickle.load(drce_file)
             if drce_cost[0] < drce_optimal_cost:
