@@ -163,7 +163,7 @@ def main(dist, noise_dist1, num_sim, num_samples, num_noise_samples, T):
     # change True to False if you don't want to use given lambda
     use_lambda = True
     use_optimal_lambda = False
-    lambda_ = 25 # will not be used if the parameter "use_lambda = False"
+    lambda_ = 35 # will not be used if the parameter "use_lambda = False"
     noisedist = [noise_dist1]
     if dist == "normal":
         theta_w_list = [0.5]
